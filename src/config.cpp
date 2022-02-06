@@ -44,19 +44,20 @@ namespace scd30 {
 		SCD30_CONFIG_SIMPLE(std::string, "", wifi_password, "", "") \
 		SCD30_CONFIG_CUSTOM(std::string, "", syslog_host, "", "") \
 		SCD30_CONFIG_ENUM(uuid::log::Level, "", syslog_level, "", uuid::log::Level::OFF) \
-		SCD30_CONFIG_SIMPLE(unsigned long, "", syslog_mark_interval, "", 0)
-
-#define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_CUSTOM SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_ENUM SCD30_CONFIG_GENERIC
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", syslog_mark_interval, "", 0) \
+		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
+		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "")
 
 /* Create member data and flash strings */
+#define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC
+#define SCD30_CONFIG_CUSTOM SCD30_CONFIG_GENERIC
+#define SCD30_CONFIG_PRIMITIVE SCD30_CONFIG_GENERIC
+#define SCD30_CONFIG_ENUM SCD30_CONFIG_GENERIC
 #define SCD30_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name##_; \
 		MAKE_PSTR(__name, __key_prefix #__name __key_suffix)
 SCD30_CONFIG_DATA
 #undef SCD30_CONFIG_GENERIC
-
 #undef SCD30_CONFIG_ENUM
 
 void Config::read_config(const ArduinoJson::JsonDocument &doc) {
@@ -76,14 +77,15 @@ void Config::write_config(ArduinoJson::JsonDocument &doc) {
 		doc[FPSTR(__pstr__##__name)] = static_cast<int>(__name());
 	SCD30_CONFIG_DATA
 #undef SCD30_CONFIG_GENERIC
+#undef SCD30_CONFIG_PRIMITIVE
+#undef SCD30_CONFIG_ENUM
 }
 
-#undef SCD30_CONFIG_GENERIC
 #undef SCD30_CONFIG_SIMPLE
+#undef SCD30_CONFIG_PRIMITIVE
 #undef SCD30_CONFIG_CUSTOM
-#undef SCD30_CONFIG_ENUM
 
-/* Create getters/setters for simple config items only */
+/* Create getters/setters for simple config items */
 #define SCD30_CONFIG_SIMPLE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name() const { \
 			return __name##_; \
@@ -91,7 +93,9 @@ void Config::write_config(ArduinoJson::JsonDocument &doc) {
 		void Config::__name(const __type &__name) { \
 			__name##_ = __name; \
 		}
-#define SCD30_CONFIG_ENUM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+/* Create getters/setters for primitive config items */
+#define SCD30_CONFIG_ENUM SCD30_CONFIG_PRIMITIVE
+#define SCD30_CONFIG_PRIMITIVE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name() const { \
 			return __name##_; \
 		} \
@@ -108,6 +112,7 @@ void Config::write_config(ArduinoJson::JsonDocument &doc) {
 SCD30_CONFIG_DATA
 
 #undef SCD30_CONFIG_SIMPLE
+#undef SCD30_CONFIG_PRIMITIVE
 #undef SCD30_CONFIG_CUSTOM
 #undef SCD30_CONFIG_ENUM
 

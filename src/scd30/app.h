@@ -52,6 +52,7 @@ public:
 	static void loop();
 
 	static void config_syslog();
+	static void config_ota();
 
 private:
 	App() = delete;
@@ -64,6 +65,7 @@ private:
 	static uuid::telnet::TelnetService telnet_;
 	static std::shared_ptr<scd30::SCD30Shell> shell_;
 	static bool local_console_;
+	static bool ota_running_;
 };
 
 } // namespace scd30

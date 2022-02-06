@@ -56,7 +56,9 @@ MAKE_PSTR_WORD(auto)
 MAKE_PSTR_WORD(connect)
 MAKE_PSTR_WORD(console)
 MAKE_PSTR_WORD(delete)
+MAKE_PSTR_WORD(disabled)
 MAKE_PSTR_WORD(disconnect)
+MAKE_PSTR_WORD(enabled)
 MAKE_PSTR_WORD(exit)
 MAKE_PSTR_WORD(external)
 MAKE_PSTR_WORD(help)
@@ -73,6 +75,7 @@ MAKE_PSTR_WORD(name)
 MAKE_PSTR_WORD(network)
 MAKE_PSTR_WORD(off)
 MAKE_PSTR_WORD(on)
+MAKE_PSTR_WORD(ota)
 MAKE_PSTR_WORD(passwd)
 MAKE_PSTR_WORD(password)
 MAKE_PSTR_WORD(reconnect)
@@ -103,6 +106,8 @@ MAKE_PSTR(name_mandatory, "<name>")
 MAKE_PSTR(name_optional, "[name]")
 MAKE_PSTR(new_password_prompt1, "Enter new password: ")
 MAKE_PSTR(new_password_prompt2, "Retype new password: ")
+MAKE_PSTR(ota_enabled_fmt, "OTA %S");
+MAKE_PSTR(ota_password_fmt, "OTA Password = %S");
 MAKE_PSTR(password_prompt, "Password: ")
 MAKE_PSTR(seconds_optional, "[seconds]")
 MAKE_PSTR(unset, "<unset>")
@@ -218,6 +223,12 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 			shell.printfln(F_(wifi_ssid_fmt), config.wifi_ssid().empty() ? uuid::read_flash_string(F_(unset)).c_str() : config.wifi_ssid().c_str());
 			shell.printfln(F_(wifi_password_fmt), config.wifi_password().empty() ? F_(unset) : F_(asterisks));
 		}
+		if (shell.has_flags(CommandFlags::ADMIN)) {
+			shell.printfln(F_(ota_enabled_fmt), config.ota_enabled() ? F_(enabled) : F_(disabled));
+		}
+		if (shell.has_flags(CommandFlags::ADMIN | CommandFlags::LOCAL)) {
+			shell.printfln(F_(ota_password_fmt), config.ota_password().empty() ? F_(unset) : F_(asterisks));
+		}
 	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(set), F_(hostname)}, flash_string_vector{F_(name_optional)},
@@ -232,6 +243,45 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		config.commit();
 
 		App::config_syslog();
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(set), F_(ota), F_(off)},
+			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		config.ota_enabled(false);
+		config.commit();
+		App::config_ota();
+		shell.printfln(F("OTA disabled"));
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(ota), F_(on)},
+			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		config.ota_enabled(true);
+		config.commit();
+		App::config_ota();
+		shell.printfln(F("OTA enabled"));
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(ota), F_(password)},
+			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		shell.enter_password(F_(new_password_prompt1), [] (Shell &shell, bool completed, const std::string &password1) {
+						if (completed) {
+							shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
+								if (completed) {
+									if (password1 == password2) {
+										Config config;
+										config.ota_password(password2);
+										config.commit();
+										App::config_ota();
+										shell.println(F("OTA password updated"));
+									} else {
+										shell.println(F("Passwords do not match"));
+									}
+								}
+							});
+						}
+					});
 	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(wifi), F_(ssid)}, flash_string_vector{F_(name_mandatory)},

@@ -51,7 +51,13 @@ public:
 	void syslog_level(uuid::log::Level syslog_level);
 
 	unsigned long syslog_mark_interval() const;
-	void syslog_mark_interval(const unsigned long &syslog_mark_interval);
+	void syslog_mark_interval(unsigned long syslog_mark_interval);
+
+	bool ota_enabled() const;
+	void ota_enabled(bool ota_enabled);
+
+	std::string ota_password() const;
+	void ota_password(const std::string &ota_password);
 
 	void commit();
 
@@ -71,6 +77,8 @@ private:
 	static std::string syslog_host_;
 	static uuid::log::Level syslog_level_;
 	static unsigned long syslog_mark_interval_;
+	static bool ota_enabled_;
+	static std::string ota_password_;
 
 	bool read_config(const std::string &filename, bool load = true);
 	void read_config(const ArduinoJson::JsonDocument &doc);

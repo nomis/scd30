@@ -19,6 +19,7 @@
 #include "scd30/app.h"
 
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 
 #include <memory>
 #include <vector>
@@ -47,6 +48,7 @@ uuid::telnet::TelnetService App::telnet_([] (Stream &stream, const IPAddress &ad
 });
 std::shared_ptr<SCD30Shell> App::shell_;
 bool App::local_console_;
+bool App::ota_running_ = false;
 
 void App::start() {
 	pinMode(CONSOLE_PIN, INPUT_PULLUP);
@@ -71,6 +73,7 @@ void App::start() {
 
 	network_.start();
 	config_syslog();
+	config_ota();
 	telnet_.default_write_timeout(1000);
 	telnet_.start();
 	if (local_console_) {
@@ -83,6 +86,9 @@ void App::loop() {
 	syslog_.loop();
 	telnet_.loop();
 	uuid::console::Shell::loop_all();
+	if (ota_running_) {
+		ArduinoOTA.handle();
+	}
 
 	if (local_console_) {
 		if (shell_) {
@@ -118,5 +124,26 @@ void App::config_syslog() {
 	syslog_.mark_interval(config.syslog_mark_interval());
 	syslog_.destination(addr);
 }
+
+void App::config_ota() {
+	Config config;
+
+	if (config.ota_enabled() && !config.ota_password().empty()) {
+		if (ota_running_) {
+			// FIXME ArduinoOTA.end();
+			ESP.restart();
+			return;
+		}
+		ArduinoOTA.setPassword(config.ota_password().c_str());
+		ArduinoOTA.begin(false);
+		ota_running_ = true;
+	} else if (ota_running_) {
+		// FIXME ArduinoOTA.end();
+		ESP.restart();
+		return;
+		ota_running_ = false;
+	}
+}
+
 
 } // namespace scd30
