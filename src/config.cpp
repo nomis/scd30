@@ -46,7 +46,9 @@ namespace scd30 {
 		SCD30_CONFIG_ENUM(uuid::log::Level, "", syslog_level, "", uuid::log::Level::OFF) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", syslog_mark_interval, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
-		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "")
+		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "") \
+		SCD30_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_interval, "", 0)
 
 /* Create member data and flash strings */
 #define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC

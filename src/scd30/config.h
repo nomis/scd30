@@ -59,6 +59,12 @@ public:
 	std::string ota_password() const;
 	void ota_password(const std::string &ota_password);
 
+	bool sensor_automatic_calibration() const;
+	void sensor_automatic_calibration(bool sensor_automatic_calibration);
+
+	unsigned long sensor_interval() const;
+	void sensor_interval(unsigned long sensor_interval);
+
 	void commit();
 
 private:
@@ -79,6 +85,8 @@ private:
 	static unsigned long syslog_mark_interval_;
 	static bool ota_enabled_;
 	static std::string ota_password_;
+	static bool sensor_automatic_calibration_;
+	static unsigned long sensor_interval_;
 
 	bool read_config(const std::string &filename, bool load = true);
 	void read_config(const ArduinoJson::JsonDocument &doc);

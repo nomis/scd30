@@ -27,6 +27,7 @@
 #include <uuid/common.h>
 #include <uuid/console.h>
 #include <uuid/log.h>
+#include <uuid/modbus.h>
 #include <uuid/syslog.h>
 #include <uuid/telnet.h>
 
@@ -47,6 +48,7 @@ uuid::telnet::TelnetService App::telnet_([] (Stream &stream, const IPAddress &ad
 	return std::make_shared<scd30::SCD30StreamConsole>(stream, addr, port);
 });
 std::shared_ptr<SCD30Shell> App::shell_;
+scd30::Sensor App::sensor_(App::serial_modbus_, App::SENSOR_PIN);
 bool App::local_console_;
 bool App::ota_running_ = false;
 
@@ -67,7 +69,7 @@ void App::start() {
 		serial_console_.println();
 		serial_console_.println(F("scd30 " SCD30_REVISION));
 	} else {
-		serial_modbus_.begin(SERIAL_MODBUS_BAUD_RATE);
+		serial_modbus_.begin(SERIAL_MODBUS_BAUD_RATE, SERIAL_8N1);
 		serial_modbus_.setDebugOutput(0);
 	}
 
@@ -78,6 +80,8 @@ void App::start() {
 	telnet_.start();
 	if (local_console_) {
 		shell_prompt();
+	} else {
+		sensor_.start();
 	}
 }
 
@@ -103,6 +107,8 @@ void App::loop() {
 				shell_->start();
 			}
 		}
+	} else if (syslog_.current_log_messages() == 0) {
+		sensor_.loop();
 	}
 }
 
@@ -144,6 +150,5 @@ void App::config_ota() {
 		ota_running_ = false;
 	}
 }
-
 
 } // namespace scd30
