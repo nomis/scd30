@@ -45,8 +45,11 @@ public:
 	static constexpr uint16_t TIMEOUT_MS = 100;
 	static constexpr uint8_t DEVICE_ADDRESS = 0x61;
 	static constexpr uint16_t FIRMWARE_VERSION_ADDRESS = 0x0020;
+	static constexpr uint16_t MEASUREMENT_INTERVAL_ADDRESS = 0x0025;
 	static constexpr uint16_t SOFT_RESET_ADDRESS = 0x0034;
+	static constexpr uint16_t ALTITUDE_COMPENSATION_ADDRESS = 0x0038;
 	static constexpr uint16_t ASC_CONFIG_ADDRESS = 0x003A;
+	static constexpr uint16_t TEMPERATURE_OFFSET_ADDRESS = 0x003B;
 
 	Sensor(::HardwareSerial &device, int ready_pin);
 	void start();
@@ -55,6 +58,11 @@ public:
 	void loop();
 
 private:
+	static uint16_t automatic_calibration();
+	static uint16_t temperature_offset();
+	static uint16_t altitude_compensation();
+	static uint16_t measurement_interval();
+
 	static uuid::log::Logger logger_;
 	static std::bitset<sizeof(Operation) * 8> config_operations_;
 

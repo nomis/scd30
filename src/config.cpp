@@ -48,7 +48,10 @@ namespace scd30 {
 		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
 		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "") \
 		SCD30_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_interval, "", 0)
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5)
 
 /* Create member data and flash strings */
 #define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC

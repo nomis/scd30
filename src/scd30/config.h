@@ -62,8 +62,17 @@ public:
 	bool sensor_automatic_calibration() const;
 	void sensor_automatic_calibration(bool sensor_automatic_calibration);
 
-	unsigned long sensor_interval() const;
-	void sensor_interval(unsigned long sensor_interval);
+	unsigned long sensor_temperature_offset() const;
+	void sensor_temperature_offset(unsigned long sensor_temperature_offset);
+
+	unsigned long sensor_altitude_compensation() const;
+	void sensor_altitude_compensation(unsigned long sensor_altitude_compensation);
+
+	unsigned long sensor_measurement_interval() const;
+	void sensor_measurement_interval(unsigned long sensor_measurement_interval);
+
+	unsigned long take_measurement_interval() const;
+	void take_measurement_interval(unsigned long take_measurement_interval);
 
 	void commit();
 
@@ -86,7 +95,10 @@ private:
 	static bool ota_enabled_;
 	static std::string ota_password_;
 	static bool sensor_automatic_calibration_;
-	static unsigned long sensor_interval_;
+	static unsigned long sensor_temperature_offset_;
+	static unsigned long sensor_altitude_compensation_;
+	static unsigned long sensor_measurement_interval_;
+	static unsigned long take_measurement_interval_;
 
 	bool read_config(const std::string &filename, bool load = true);
 	void read_config(const ArduinoJson::JsonDocument &doc);

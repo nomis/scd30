@@ -64,7 +64,7 @@ void Sensor::config(std::initializer_list<Operation> operations) {
 		}
 	}
 
-	interval_ = std::max(0UL, std::min((unsigned long)UINT8_MAX, config.sensor_interval()));
+	interval_ = std::max(0UL, std::min((unsigned long)UINT8_MAX, config.take_measurement_interval()));
 }
 
 void Sensor::reset(uint32_t wait_ms) {
@@ -146,23 +146,20 @@ retry:
 					logger_.err(F("Failed to write automatic calibration configuration"));
 					reset();
 				} else {
-					bool enabled = (write_response->data()[0] == 0x0001);
-
-					logger_.info(F("Automatic calibration %S"), enabled ? F("enabled") : F("disabled"));
+					logger_.info(F("Automatic calibration %S"), write_response->data()[0] ? F("enabled") : F("disabled"));
 				}
 			} else if (read_response) {
 				if (read_response->data().size() < 1) {
 					logger_.err(F("Failed to read automatic calibration configuration"));
 					reset();
 				} else {
-					Config config;
-					bool enabled = (read_response->data()[0] == 0x0001);
+					const uint16_t value = automatic_calibration();
 
-					if (enabled == config.sensor_automatic_calibration()) {
-						logger_.debug(F("Automatic calibration %S"), enabled ? F("enabled") : F("disabled"));
+					if (read_response->data()[0] == value) {
+						logger_.debug(F("Automatic calibration %S"), value ? F("enabled") : F("disabled"));
 					} else {
-						logger_.info(F("%S automatic calibration"), enabled ? F("Disabling") : F("Enabling"));
-						response_ = client_.write_holding_register(DEVICE_ADDRESS, ASC_CONFIG_ADDRESS, enabled ? 0x0000 : 0x0001);
+						logger_.info(F("%S automatic calibration"), value ? F("Enabling") : F("Disabling"));
+						response_ = client_.write_holding_register(DEVICE_ADDRESS, ASC_CONFIG_ADDRESS, value);
 						return;
 					}
 				}
@@ -174,20 +171,144 @@ retry:
 		break;
 
 	case Operation::CONFIG_TEMPERATURE_OFFSET:
-		response_.reset();
-		current_operation_ = Operation::NONE;
+		if (!response_) {
+			logger_.debug(F("Reading temperature offset configuration"));
+			response_ = client_.read_holding_registers(DEVICE_ADDRESS, TEMPERATURE_OFFSET_ADDRESS, 1);
+		} else if (response_->done()) {
+			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+
+			if (write_response) {
+				if (write_response->data().size() < 1) {
+					logger_.err(F("Failed to write temperature offset configuration"));
+					reset();
+				} else {
+					uint16_t major = write_response->data()[0] / 100;
+					uint8_t minor = write_response->data()[0] % 100;
+
+					logger_.info(F("Temperature offset %u.%02u°C"), major, minor);
+				}
+			} else if (read_response) {
+				if (read_response->data().size() < 1) {
+					logger_.err(F("Failed to read temperature offset configuration"));
+					reset();
+				} else {
+					const uint16_t value = temperature_offset();
+
+					if (read_response->data()[0] == value) {
+						uint16_t major = read_response->data()[0] / 100;
+						uint8_t minor = read_response->data()[0] % 100;
+
+						logger_.debug(F("Temperature offset %u.%02u°C"), major, minor);
+					} else {
+						uint16_t major = value / 100;
+						uint8_t minor = value % 100;
+
+						logger_.info(F("Setting temperature offset to %u.%02u°C"), major, minor);
+						response_ = client_.write_holding_register(DEVICE_ADDRESS, TEMPERATURE_OFFSET_ADDRESS, value);
+						return;
+					}
+				}
+			}
+
+			response_.reset();
+			current_operation_ = Operation::NONE;
+		}
 		break;
 
 	case Operation::CONFIG_ALTITUDE_COMPENSATION:
-		response_.reset();
-		current_operation_ = Operation::NONE;
+		if (!response_) {
+			logger_.debug(F("Reading altitude compensation configuration"));
+			response_ = client_.read_holding_registers(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, 1);
+		} else if (response_->done()) {
+			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+
+			if (write_response) {
+				if (write_response->data().size() < 1) {
+					logger_.err(F("Failed to write altitude compensation configuration"));
+					reset();
+				} else {
+					logger_.info(F("Altitude compensation %um"), write_response->data()[0]);
+				}
+			} else if (read_response) {
+				if (read_response->data().size() < 1) {
+					logger_.err(F("Failed to read altitude compensation configuration"));
+					reset();
+				} else {
+					const uint16_t value = automatic_calibration();
+
+					if (read_response->data()[0] == value) {
+						logger_.debug(F("Altitude compensation %um"), read_response->data()[0]);
+					} else {
+						logger_.info(F("Setting altitude compensation to %um"), value);
+						response_ = client_.write_holding_register(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, value);
+						return;
+					}
+				}
+			}
+
+			response_.reset();
+			current_operation_ = Operation::NONE;
+		}
 		break;
 
 	case Operation::CONFIG_CONTINUOUS_MEASUREMENT:
+		if (!response_) {
+			logger_.debug(F("Reading measurement interval configuration"));
+			response_ = client_.read_holding_registers(DEVICE_ADDRESS, MEASUREMENT_INTERVAL_ADDRESS, 1);
+		} else if (response_->done()) {
+			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+
+			if (write_response) {
+				if (write_response->data().size() < 1) {
+					logger_.err(F("Failed to write measurement interval configuration"));
+					reset();
+				} else {
+					logger_.info(F("Measurement interval %us"), write_response->data()[0]);
+				}
+			} else if (read_response) {
+				if (read_response->data().size() < 1) {
+					logger_.err(F("Failed to read measurement interval configuration"));
+					reset();
+				} else {
+					const uint16_t value = measurement_interval();
+
+					if (read_response->data()[0] == value) {
+						logger_.debug(F("Measurement interval %us"), read_response->data()[0]);
+					} else {
+						logger_.info(F("Setting measurement interval to %us"), value);
+						response_ = client_.write_holding_register(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, value);
+						return;
+					}
+				}
+			}
+
+			response_.reset();
+			current_operation_ = Operation::NONE;
+		}
+		break;
 		response_.reset();
 		current_operation_ = Operation::NONE;
 		break;
 	}
+}
+
+uint16_t Sensor::automatic_calibration() {
+	return Config().sensor_automatic_calibration() ? 0x0001 : 0x0000;
+}
+
+uint16_t Sensor::temperature_offset() {
+	return Config().sensor_temperature_offset();
+}
+
+uint16_t Sensor::altitude_compensation() {
+	return Config().sensor_altitude_compensation();
+}
+
+uint16_t Sensor::measurement_interval() {
+	return std::max(2UL, std::min(1800UL, Config().sensor_measurement_interval()));
 }
 
 } // namespace scd30
