@@ -23,7 +23,9 @@
 
 #include <bitset>
 #include <initializer_list>
+#include <functional>
 #include <memory>
+#include <string>
 
 #include <uuid/log.h>
 #include <uuid/modbus.h>
@@ -62,6 +64,12 @@ private:
 	static uint16_t temperature_offset();
 	static uint16_t altitude_compensation();
 	static uint16_t measurement_interval();
+
+	void update_config_register(const __FlashStringHelper *name,
+		const uint16_t address,
+		const std::function<uint16_t ()> &func_cfg_value,
+		const std::function<std::string (uint16_t)> &func_value_str,
+		const std::function<std::string (uint16_t)> &func_bool_value_str = std::function<std::string (uint16_t)>{});
 
 	static uuid::log::Logger logger_;
 	static std::bitset<sizeof(Operation) * 8> config_operations_;

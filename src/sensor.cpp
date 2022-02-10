@@ -24,9 +24,14 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cctype>
 #include <cstdint>
 #include <initializer_list>
+#include <functional>
+#include <string>
+#include <vector>
 
+#include <uuid/common.h>
 #include <uuid/log.h>
 
 #include <scd30/config.h>
@@ -134,164 +139,108 @@ retry:
 		break;
 
 	case Operation::CONFIG_AUTOMATIC_CALIBRATION:
-		if (!response_) {
-			logger_.debug(F("Reading automatic calibration configuration"));
-			response_ = client_.read_holding_registers(DEVICE_ADDRESS, ASC_CONFIG_ADDRESS, 1);
-		} else if (response_->done()) {
-			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
-			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+		static const auto bool_value_str = [] (uint16_t value) -> std::string {
+				return uuid::read_flash_string(value ? F("enabled") : F("disabled"));
+			};
+		static const auto bool_set_value_str = [] (uint16_t value) -> std::string {
+				return uuid::read_flash_string(value ? F("Enabling") : F("Disabling"));
+			};
 
-			if (write_response) {
-				if (write_response->data().size() < 1) {
-					logger_.err(F("Failed to write automatic calibration configuration"));
-					reset();
-				} else {
-					logger_.info(F("Automatic calibration %S"), write_response->data()[0] ? F("enabled") : F("disabled"));
-				}
-			} else if (read_response) {
-				if (read_response->data().size() < 1) {
-					logger_.err(F("Failed to read automatic calibration configuration"));
-					reset();
-				} else {
-					const uint16_t value = automatic_calibration();
-
-					if (read_response->data()[0] == value) {
-						logger_.debug(F("Automatic calibration %S"), value ? F("enabled") : F("disabled"));
-					} else {
-						logger_.info(F("%S automatic calibration"), value ? F("Enabling") : F("Disabling"));
-						response_ = client_.write_holding_register(DEVICE_ADDRESS, ASC_CONFIG_ADDRESS, value);
-						return;
-					}
-				}
-			}
-
-			response_.reset();
-			current_operation_ = Operation::NONE;
-		}
+		update_config_register(F("automatic calibration"), ASC_CONFIG_ADDRESS,
+			&automatic_calibration, bool_value_str, bool_set_value_str);
 		break;
 
 	case Operation::CONFIG_TEMPERATURE_OFFSET:
-		if (!response_) {
-			logger_.debug(F("Reading temperature offset configuration"));
-			response_ = client_.read_holding_registers(DEVICE_ADDRESS, TEMPERATURE_OFFSET_ADDRESS, 1);
-		} else if (response_->done()) {
-			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
-			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
-
-			if (write_response) {
-				if (write_response->data().size() < 1) {
-					logger_.err(F("Failed to write temperature offset configuration"));
-					reset();
-				} else {
-					uint16_t major = write_response->data()[0] / 100;
-					uint8_t minor = write_response->data()[0] % 100;
-
-					logger_.info(F("Temperature offset %u.%02u°C"), major, minor);
+		static const auto temp_value_str = [] (uint16_t value) -> std::string {
+				std::vector<char> text(9 + 1);
+				if (snprintf_P(text.data(), text.size(), PSTR("%u.%02u°C"), value / 100, value % 100) <= 0) {
+					return uuid::read_flash_string(F("?"));
 				}
-			} else if (read_response) {
-				if (read_response->data().size() < 1) {
-					logger_.err(F("Failed to read temperature offset configuration"));
-					reset();
-				} else {
-					const uint16_t value = temperature_offset();
+				return text.data();
+			};
 
-					if (read_response->data()[0] == value) {
-						uint16_t major = read_response->data()[0] / 100;
-						uint8_t minor = read_response->data()[0] % 100;
-
-						logger_.debug(F("Temperature offset %u.%02u°C"), major, minor);
-					} else {
-						uint16_t major = value / 100;
-						uint8_t minor = value % 100;
-
-						logger_.info(F("Setting temperature offset to %u.%02u°C"), major, minor);
-						response_ = client_.write_holding_register(DEVICE_ADDRESS, TEMPERATURE_OFFSET_ADDRESS, value);
-						return;
-					}
-				}
-			}
-
-			response_.reset();
-			current_operation_ = Operation::NONE;
-		}
+		update_config_register(F("temperature offset"), TEMPERATURE_OFFSET_ADDRESS,
+			&temperature_offset, temp_value_str);
 		break;
 
 	case Operation::CONFIG_ALTITUDE_COMPENSATION:
-		if (!response_) {
-			logger_.debug(F("Reading altitude compensation configuration"));
-			response_ = client_.read_holding_registers(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, 1);
-		} else if (response_->done()) {
-			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
-			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
-
-			if (write_response) {
-				if (write_response->data().size() < 1) {
-					logger_.err(F("Failed to write altitude compensation configuration"));
-					reset();
-				} else {
-					logger_.info(F("Altitude compensation %um"), write_response->data()[0]);
+		static const auto alt_value_str = [] (uint16_t value) -> std::string {
+				std::vector<char> text(6 + 1);
+				if (snprintf_P(text.data(), text.size(), PSTR("%um"), value) <= 0) {
+					return uuid::read_flash_string(F("?"));
 				}
-			} else if (read_response) {
-				if (read_response->data().size() < 1) {
-					logger_.err(F("Failed to read altitude compensation configuration"));
-					reset();
-				} else {
-					const uint16_t value = automatic_calibration();
+				return text.data();
+			};
 
-					if (read_response->data()[0] == value) {
-						logger_.debug(F("Altitude compensation %um"), read_response->data()[0]);
-					} else {
-						logger_.info(F("Setting altitude compensation to %um"), value);
-						response_ = client_.write_holding_register(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, value);
-						return;
-					}
-				}
-			}
-
-			response_.reset();
-			current_operation_ = Operation::NONE;
-		}
+		update_config_register(F("altitude compensation"), ALTITUDE_COMPENSATION_ADDRESS,
+			&altitude_compensation, alt_value_str);
 		break;
 
 	case Operation::CONFIG_CONTINUOUS_MEASUREMENT:
-		if (!response_) {
-			logger_.debug(F("Reading measurement interval configuration"));
-			response_ = client_.read_holding_registers(DEVICE_ADDRESS, MEASUREMENT_INTERVAL_ADDRESS, 1);
-		} else if (response_->done()) {
-			auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
-			auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
-
-			if (write_response) {
-				if (write_response->data().size() < 1) {
-					logger_.err(F("Failed to write measurement interval configuration"));
-					reset();
-				} else {
-					logger_.info(F("Measurement interval %us"), write_response->data()[0]);
+		static const auto secs_value_str = [] (uint16_t value) -> std::string {
+				std::vector<char> text(6 + 1);
+				if (snprintf_P(text.data(), text.size(), PSTR("%us"), value) <= 0) {
+					return uuid::read_flash_string(F("?"));
 				}
-			} else if (read_response) {
-				if (read_response->data().size() < 1) {
-					logger_.err(F("Failed to read measurement interval configuration"));
-					reset();
-				} else {
-					const uint16_t value = measurement_interval();
+				return text.data();
+			};
 
-					if (read_response->data()[0] == value) {
-						logger_.debug(F("Measurement interval %us"), read_response->data()[0]);
+		update_config_register(F("measurement interval"), MEASUREMENT_INTERVAL_ADDRESS,
+			&measurement_interval, secs_value_str);
+		break;
+	}
+}
+
+void Sensor::update_config_register(const __FlashStringHelper *name,
+		const uint16_t address,
+		const std::function<uint16_t ()> &func_cfg_value,
+		const std::function<std::string (uint16_t)> &func_value_str,
+		const std::function<std::string (uint16_t)> &func_bool_cfg_str) {
+	if (!response_) {
+		logger_.debug(F("Reading %S configuration"), name);
+		response_ = client_.read_holding_registers(DEVICE_ADDRESS, address, 1);
+	} else if (response_->done()) {
+		auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+		auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+
+		if (write_response) {
+			if (write_response->data().size() < 1) {
+				logger_.err(F("Failed to write %S configuration"), name);
+				reset();
+			} else {
+				std::string name_title = uuid::read_flash_string(name);
+
+				name_title[0] = ::toupper(name_title[0]);
+
+				logger_.info(F("%s %s"), name_title.c_str(), func_value_str(read_response->data()[0]).c_str());
+			}
+		} else if (read_response) {
+			if (read_response->data().size() < 1) {
+				logger_.err(F("Failed to read %S configuration"), name);
+				reset();
+			} else {
+				const uint16_t value = func_cfg_value();
+
+				if (read_response->data()[0] == value) {
+					std::string name_title = uuid::read_flash_string(name);
+
+					name_title[0] = ::toupper(name_title[0]);
+
+					logger_.debug(F("%s %s"), name_title.c_str(), func_value_str(read_response->data()[0]).c_str());
+				} else {
+					if (func_bool_cfg_str) {
+						logger_.info(F("%S %s"), name, func_bool_cfg_str(value).c_str());
 					} else {
-						logger_.info(F("Setting measurement interval to %us"), value);
-						response_ = client_.write_holding_register(DEVICE_ADDRESS, ALTITUDE_COMPENSATION_ADDRESS, value);
-						return;
+						logger_.info(F("Setting %S to %s"), name, func_value_str(value).c_str());
 					}
+					response_ = client_.write_holding_register(DEVICE_ADDRESS, address, value);
+					return;
 				}
 			}
-
-			response_.reset();
-			current_operation_ = Operation::NONE;
 		}
-		break;
+
 		response_.reset();
 		current_operation_ = Operation::NONE;
-		break;
 	}
 }
 
