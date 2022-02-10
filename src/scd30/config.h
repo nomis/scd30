@@ -71,6 +71,9 @@ public:
 	unsigned long sensor_measurement_interval() const;
 	void sensor_measurement_interval(unsigned long sensor_measurement_interval);
 
+	unsigned long sensor_ambient_pressure() const;
+	void sensor_ambient_pressure(unsigned long sensor_ambient_pressure);
+
 	unsigned long take_measurement_interval() const;
 	void take_measurement_interval(unsigned long take_measurement_interval);
 
@@ -98,6 +101,7 @@ private:
 	static unsigned long sensor_temperature_offset_;
 	static unsigned long sensor_altitude_compensation_;
 	static unsigned long sensor_measurement_interval_;
+	static unsigned long sensor_ambient_pressure_;
 	static unsigned long take_measurement_interval_;
 
 	bool read_config(const std::string &filename, bool load = true);

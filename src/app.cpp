@@ -56,7 +56,6 @@ void App::start() {
 	pinMode(CONSOLE_PIN, INPUT_PULLUP);
 	local_console_ = digitalRead(CONSOLE_PIN) == LOW;
 	pinMode(CONSOLE_PIN, INPUT);
-	pinMode(SENSOR_PIN, INPUT);
 
 	syslog_.start();
 

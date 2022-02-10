@@ -44,10 +44,14 @@ uuid::log::Logger Sensor::logger_{FPSTR(__pstr__logger_name), uuid::log::Facilit
 std::bitset<sizeof(Operation) * 8> Sensor::config_operations_;
 
 Sensor::Sensor(::HardwareSerial &device, int ready_pin) : client_(device), ready_pin_(ready_pin) {
+	pinMode(ready_pin_, INPUT);
+
 	config_operations_.set(Operation::CONFIG_AUTOMATIC_CALIBRATION);
 	config_operations_.set(Operation::CONFIG_TEMPERATURE_OFFSET);
 	config_operations_.set(Operation::CONFIG_ALTITUDE_COMPENSATION);
 	config_operations_.set(Operation::CONFIG_CONTINUOUS_MEASUREMENT);
+	config_operations_.set(Operation::CONFIG_AMBIENT_PRESSURE);
+
 	client_.default_unicast_timeout_ms(TIMEOUT_MS);
 }
 
@@ -78,10 +82,32 @@ void Sensor::reset(uint32_t wait_ms) {
 	start();
 	reset_start_ms_ = ::millis();
 	reset_wait_ms_ = wait_ms;
+	last_reading_s_ = 0;
+	reading_complete_ = true;
+}
+
+uint32_t Sensor::current_time() {
+	struct timeval tv;
+
+	if (gettimeofday(&tv, nullptr) == 0) {
+		return tv.tv_sec;
+	} else {
+		return 0;
+	}
 }
 
 void Sensor::loop() {
 	client_.loop();
+
+	if (reading_complete_ && interval_ > 0) {
+		uint32_t now = current_time();
+
+		if (now > last_reading_s_ && now % interval_ == 0) {
+			logger_.debug(F("Take measurement"));
+			pending_operations_.set(Operation::TAKE_MEASUREMENT);
+			reading_complete_ = false;
+		}
+	}
 
 retry:
 	switch (current_operation_) {
@@ -147,7 +173,7 @@ retry:
 			};
 
 		update_config_register(F("automatic calibration"), ASC_CONFIG_ADDRESS,
-			&automatic_calibration, bool_value_str, bool_set_value_str);
+			false, &automatic_calibration, bool_value_str, bool_set_value_str);
 		break;
 
 	case Operation::CONFIG_TEMPERATURE_OFFSET:
@@ -160,7 +186,7 @@ retry:
 			};
 
 		update_config_register(F("temperature offset"), TEMPERATURE_OFFSET_ADDRESS,
-			&temperature_offset, temp_value_str);
+			false, &temperature_offset, temp_value_str);
 		break;
 
 	case Operation::CONFIG_ALTITUDE_COMPENSATION:
@@ -173,7 +199,7 @@ retry:
 			};
 
 		update_config_register(F("altitude compensation"), ALTITUDE_COMPENSATION_ADDRESS,
-			&altitude_compensation, alt_value_str);
+			false, &altitude_compensation, alt_value_str);
 		break;
 
 	case Operation::CONFIG_CONTINUOUS_MEASUREMENT:
@@ -186,13 +212,50 @@ retry:
 			};
 
 		update_config_register(F("measurement interval"), MEASUREMENT_INTERVAL_ADDRESS,
-			&measurement_interval, secs_value_str);
+			false, &measurement_interval, secs_value_str);
+		break;
+
+	case Operation::CONFIG_AMBIENT_PRESSURE:
+		static const auto pressure_value_str = [] (uint16_t value) -> std::string {
+				std::vector<char> text(10 + 1);
+				if (snprintf_P(text.data(), text.size(), PSTR("%u mbar"), value) <= 0) {
+					return uuid::read_flash_string(F("?"));
+				}
+				return text.data();
+			};
+
+		update_config_register(F("continuous measurement with ambient pressure"), AMBIENT_PRESSURE_ADDRESS,
+			true, &ambient_pressure, pressure_value_str);
+		break;
+
+	case Operation::TAKE_MEASUREMENT:
+		if (!response_) {
+			if (digitalRead(ready_pin_) == HIGH) {
+				logger_.debug(F("Read measurement data"));
+				response_ = client_.read_holding_registers(DEVICE_ADDRESS, MEASUREMENT_DATA_ADDRESS, 6);
+			}
+		} else if (response_->done()) {
+			auto response = std::static_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+
+			if (response->data().size() < 6) {
+				logger_.warning(F("Failed to read measurement data"));
+				reset();
+			} else {
+				uint32_t now = current_time();
+
+				last_reading_s_ = now;
+				reading_complete_ = true;
+			}
+
+			response_.reset();
+			current_operation_ = Operation::NONE;
+		}
 		break;
 	}
 }
 
 void Sensor::update_config_register(const __FlashStringHelper *name,
-		const uint16_t address,
+		const uint16_t address, const bool always_write,
 		const std::function<uint16_t ()> &func_cfg_value,
 		const std::function<std::string (uint16_t)> &func_value_str,
 		const std::function<std::string (uint16_t)> &func_bool_cfg_str) {
@@ -221,7 +284,7 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 			} else {
 				const uint16_t value = func_cfg_value();
 
-				if (read_response->data()[0] == value) {
+				if (read_response->data()[0] == value && !always_write) {
 					std::string name_title = uuid::read_flash_string(name);
 
 					name_title[0] = ::toupper(name_title[0]);
@@ -258,6 +321,16 @@ uint16_t Sensor::altitude_compensation() {
 
 uint16_t Sensor::measurement_interval() {
 	return std::max(2UL, std::min(1800UL, Config().sensor_measurement_interval()));
+}
+
+uint16_t Sensor::ambient_pressure() {
+	unsigned long value = Config().sensor_ambient_pressure();
+
+	if (value == 0) {
+		return value;
+	} else {
+		return std::max(700UL, std::min(1200UL, value));
+	}
 }
 
 } // namespace scd30

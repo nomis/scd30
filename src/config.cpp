@@ -51,6 +51,7 @@ namespace scd30 {
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_ambient_pressure, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5)
 
 /* Create member data and flash strings */
