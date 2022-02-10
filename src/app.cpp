@@ -58,6 +58,7 @@ void App::start() {
 	pinMode(CONSOLE_PIN, INPUT);
 
 	syslog_.start();
+	syslog_.maximum_log_messages(100);
 
 	logger_.info(F("System startup (scd30 " SCD30_REVISION ")"));
 	logger_.info(F("Reset: %s"), ESP.getResetInfo().c_str());
@@ -106,7 +107,7 @@ void App::loop() {
 				shell_->start();
 			}
 		}
-	} else if (syslog_.current_log_messages() == 0) {
+	} else {
 		sensor_.loop();
 	}
 }
