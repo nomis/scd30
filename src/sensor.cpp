@@ -300,11 +300,11 @@ uint16_t Sensor::automatic_calibration() {
 }
 
 uint16_t Sensor::temperature_offset() {
-	return Config().sensor_temperature_offset();
+	return std::max(0UL, std::min((unsigned long)UINT16_MAX, Config().sensor_temperature_offset()));
 }
 
 uint16_t Sensor::altitude_compensation() {
-	return Config().sensor_altitude_compensation();
+	return std::max(0UL, std::min((unsigned long)UINT16_MAX, Config().sensor_altitude_compensation()));
 }
 
 uint16_t Sensor::measurement_interval() {
