@@ -32,7 +32,7 @@
 
 namespace scd30 {
 
-enum Operation : uint32_t {
+enum Operation : uint8_t {
 	NONE = 32,
 	SOFT_RESET = 0,
 	READ_FIRMWARE_VERSION,
@@ -44,9 +44,19 @@ enum Operation : uint32_t {
 	TAKE_MEASUREMENT,
 };
 
+enum Measurement : uint8_t {
+	IDLE,
+	PENDING,
+	WAITING,
+};
+
 class Sensor {
 public:
-	static constexpr uint16_t TIMEOUT_MS = 100;
+	static constexpr uint16_t MODBUS_TIMEOUT_MS = 100;
+	static constexpr uint16_t RESET_PRE_DELAY_MS = 60000;
+	static constexpr uint16_t RESET_POST_DELAY_MS = 5000;
+	static constexpr uint16_t MEASUREMENT_TIMEOUT_MS = 30000;
+
 	static constexpr uint8_t DEVICE_ADDRESS = 0x61;
 	static constexpr uint16_t FIRMWARE_VERSION_ADDRESS = 0x0020;
 	static constexpr uint16_t MEASUREMENT_INTERVAL_ADDRESS = 0x0025;
@@ -60,7 +70,7 @@ public:
 	Sensor(::HardwareSerial &device, int ready_pin);
 	void start();
 	void config(std::initializer_list<Operation> operations = {});
-	void reset(uint32_t wait_ms = 60000);
+	void reset(uint32_t wait_ms = RESET_PRE_DELAY_MS);
 	void loop();
 
 private:
@@ -78,20 +88,22 @@ private:
 		const std::function<std::string (uint16_t)> &func_bool_value_str = std::function<std::string (uint16_t)>{});
 
 	static uuid::log::Logger logger_;
-	static std::bitset<sizeof(Operation) * 8> config_operations_;
+	static std::bitset<sizeof(uint32_t) * 8> config_operations_;
 
 	uuid::modbus::SerialClient client_;
 	int ready_pin_;
 	uint8_t interval_ = 0;
-	std::bitset<sizeof(Operation) * 8> pending_operations_;
+	std::bitset<sizeof(uint32_t) * 8> pending_operations_;
 	Operation current_operation_ = Operation::NONE;
 	std::shared_ptr<const uuid::modbus::Response> response_;
 
 	uint32_t reset_start_ms_;
 	uint32_t reset_wait_ms_;
+	bool reset_complete_;
 
 	uint32_t last_reading_s_ = 0;
-	bool reading_complete_ = true;
+	uint32_t measurement_start_ms_;
+	Measurement measurement_status_ = Measurement::IDLE;
 
 	uint8_t firmware_major_ = 0;
 	uint8_t firmware_minor_ = 0;

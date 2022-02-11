@@ -41,7 +41,17 @@ static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))
 namespace scd30 {
 
 uuid::log::Logger Sensor::logger_{FPSTR(__pstr__logger_name), uuid::log::Facility::DAEMON};
-std::bitset<sizeof(Operation) * 8> Sensor::config_operations_;
+std::bitset<sizeof(uint32_t) * 8> Sensor::config_operations_;
+
+static inline float convert_f(const uint16_t *data) {
+	union {
+		uint32_t u32;
+		float f;
+	} temp;
+
+	temp.u32 = (data[0] << 16) | data[1];
+	return temp.f;
+}
 
 Sensor::Sensor(::HardwareSerial &device, int ready_pin) : client_(device), ready_pin_(ready_pin) {
 	pinMode(ready_pin_, INPUT);
@@ -52,7 +62,7 @@ Sensor::Sensor(::HardwareSerial &device, int ready_pin) : client_(device), ready
 	config_operations_.set(Operation::CONFIG_CONTINUOUS_MEASUREMENT);
 	config_operations_.set(Operation::CONFIG_AMBIENT_PRESSURE);
 
-	client_.default_unicast_timeout_ms(TIMEOUT_MS);
+	client_.default_unicast_timeout_ms(MODBUS_TIMEOUT_MS);
 }
 
 void Sensor::start() {
@@ -79,11 +89,13 @@ void Sensor::config(std::initializer_list<Operation> operations) {
 void Sensor::reset(uint32_t wait_ms) {
 	pending_operations_.reset();
 	pending_operations_.set(Operation::SOFT_RESET);
+	current_operation_ = Operation::NONE;
+	response_.reset();
 	start();
 	reset_start_ms_ = ::millis();
 	reset_wait_ms_ = wait_ms;
 	last_reading_s_ = 0;
-	reading_complete_ = true;
+	measurement_status_ = Measurement::PENDING;
 }
 
 uint32_t Sensor::current_time() {
@@ -99,13 +111,13 @@ uint32_t Sensor::current_time() {
 void Sensor::loop() {
 	client_.loop();
 
-	if (reading_complete_ && interval_ > 0) {
+	if (measurement_status_ == Measurement::IDLE && interval_ > 0) {
 		uint32_t now = current_time();
 
 		if (now > last_reading_s_ && now % interval_ == 0) {
-			logger_.debug(F("Take measurement"));
+			logger_.trace(F("Take measurement"));
 			pending_operations_.set(Operation::TAKE_MEASUREMENT);
-			reading_complete_ = false;
+			measurement_status_ = Measurement::PENDING;
 		}
 	}
 
@@ -127,6 +139,7 @@ retry:
 			if (::millis() - reset_start_ms_ >= reset_wait_ms_) {
 				logger_.debug(F("Restarting sensor"));
 				response_ = client_.write_holding_register(DEVICE_ADDRESS, SOFT_RESET_ADDRESS, 0x0001);
+				reset_complete_ = false;
 			}
 		} else if (response_->done()) {
 			auto write_response = std::static_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
@@ -134,12 +147,18 @@ retry:
 			if (write_response->data().size() < 1 || write_response->data()[0] != 0x0001) {
 				logger_.warning(F("Failed to restart sensor"));
 				reset();
-			} else {
+				return;
+			} else if (!reset_complete_) {
 				logger_.info(F("Restarted sensor"));
+				reset_start_ms_ = ::millis();
+				reset_complete_ = true;
+			} else {
+				if (::millis() - reset_start_ms_ >= RESET_POST_DELAY_MS) {
+					response_.reset();
+					current_operation_ = Operation::NONE;
+					measurement_status_ = Measurement::IDLE;
+				}
 			}
-
-			response_.reset();
-			current_operation_ = Operation::NONE;
 		}
 		break;
 
@@ -153,6 +172,7 @@ retry:
 			if (response->data().size() < 1) {
 				logger_.warning(F("Failed to read firmware version"));
 				reset();
+				return;
 			} else {
 				firmware_major_ = response->data()[0] >> 8;
 				firmware_minor_ = response->data()[0] & 0xFF;
@@ -231,20 +251,35 @@ retry:
 	case Operation::TAKE_MEASUREMENT:
 		if (!response_) {
 			if (digitalRead(ready_pin_) == HIGH) {
-				logger_.debug(F("Read measurement data"));
+				logger_.trace(F("Read measurement data"));
 				response_ = client_.read_holding_registers(DEVICE_ADDRESS, MEASUREMENT_DATA_ADDRESS, 6);
+			} else if (measurement_status_ == Measurement::WAITING) {
+				if (::millis() - measurement_start_ms_ >= MEASUREMENT_TIMEOUT_MS) {
+					logger_.err(F("Timeout waiting for measurement to be ready"));
+					reset();
+					return;
+				}
+			} else {
+				measurement_status_ = Measurement::WAITING;
+				measurement_start_ms_ = ::millis();
 			}
 		} else if (response_->done()) {
 			auto response = std::static_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
 
 			if (response->data().size() < 6) {
-				logger_.warning(F("Failed to read measurement data"));
+				logger_.err(F("Failed to read measurement data"));
 				reset();
+				return;
 			} else {
 				uint32_t now = current_time();
+				float co2 = convert_f(&response->data()[0]);
+				float temp = convert_f(&response->data()[2]);
+				float rh = convert_f(&response->data()[4]);
+
+				logger_.debug(F("Temperature %.2f°C, Relative humidity %.2f%%, CO₂ %.2f ppm"), temp, rh, co2);
 
 				last_reading_s_ = now;
-				reading_complete_ = true;
+				measurement_status_ = Measurement::IDLE;
 			}
 
 			response_.reset();
@@ -270,6 +305,7 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 			if (write_response->data().size() < 1) {
 				logger_.err(F("Failed to write %S configuration"), name);
 				reset();
+				return;
 			} else {
 				std::string name_title = uuid::read_flash_string(name);
 
@@ -281,6 +317,7 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 			if (read_response->data().size() < 1) {
 				logger_.err(F("Failed to read %S configuration"), name);
 				reset();
+				return;
 			} else {
 				const uint16_t value = func_cfg_value();
 
