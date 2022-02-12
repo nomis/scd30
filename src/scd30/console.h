@@ -41,6 +41,7 @@ enum CommandFlags : unsigned int {
 	USER = 0,
 	ADMIN = (1 << 0),
 	LOCAL = (1 << 1),
+	USER_ONLY = (1 << 2),
 };
 
 enum ShellContext : unsigned int {

@@ -21,6 +21,7 @@
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 
+#include <initializer_list>
 #include <memory>
 #include <vector>
 
@@ -149,6 +150,10 @@ void App::config_ota() {
 		return;
 		ota_running_ = false;
 	}
+}
+
+void App::config_sensor(std::initializer_list<Operation> operations) {
+	sensor_.config(operations);
 }
 
 } // namespace scd30

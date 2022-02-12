@@ -22,6 +22,7 @@
 #include <Arduino.h>
 
 #include <bitset>
+#include <cmath>
 #include <initializer_list>
 #include <functional>
 #include <memory>
@@ -67,11 +68,20 @@ public:
 	static constexpr uint16_t ASC_CONFIG_ADDRESS = 0x003A;
 	static constexpr uint16_t TEMPERATURE_OFFSET_ADDRESS = 0x003B;
 
+	static constexpr float MINIMUM_CO2_PPM = 200;
+
 	Sensor(::HardwareSerial &device, int ready_pin);
 	void start();
 	void config(std::initializer_list<Operation> operations = {});
 	void reset(uint32_t wait_ms = RESET_PRE_DELAY_MS);
 	void loop();
+
+	inline std::string firmware_version() const {
+		return std::to_string(firmware_major_) + '.' + std::to_string(firmware_minor_);
+	}
+	inline float temperature_c() const { return temperature_c_; }
+	inline float relative_humidity_pc() const { return relative_humidity_pc_; }
+	inline float co2_ppm() const { return co2_ppm_; }
 
 private:
 	static uint32_t current_time();
@@ -107,6 +117,9 @@ private:
 
 	uint8_t firmware_major_ = 0;
 	uint8_t firmware_minor_ = 0;
+	float temperature_c_ = NAN;
+	float relative_humidity_pc_ = NAN;
+	float co2_ppm_ = NAN;
 };
 
 } // namespace scd30

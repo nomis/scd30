@@ -28,6 +28,7 @@
 #endif
 #include <time.h>
 
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <string>
@@ -52,7 +53,10 @@ using LogFacility = ::uuid::log::Facility;
 
 namespace scd30 {
 
+MAKE_PSTR_WORD(altitude)
+MAKE_PSTR_WORD(ambient)
 MAKE_PSTR_WORD(auto)
+MAKE_PSTR_WORD(compensation)
 MAKE_PSTR_WORD(connect)
 MAKE_PSTR_WORD(console)
 MAKE_PSTR_WORD(delete)
@@ -65,22 +69,27 @@ MAKE_PSTR_WORD(help)
 MAKE_PSTR_WORD(host)
 MAKE_PSTR_WORD(hostname)
 MAKE_PSTR_WORD(internal)
+MAKE_PSTR_WORD(interval)
 MAKE_PSTR_WORD(level)
 MAKE_PSTR_WORD(log)
 MAKE_PSTR_WORD(logout)
 MAKE_PSTR_WORD(mark)
+MAKE_PSTR_WORD(measurement)
 MAKE_PSTR_WORD(memory)
 MAKE_PSTR_WORD(mkfs)
 MAKE_PSTR_WORD(name)
 MAKE_PSTR_WORD(network)
 MAKE_PSTR_WORD(off)
+MAKE_PSTR_WORD(offset)
 MAKE_PSTR_WORD(on)
 MAKE_PSTR_WORD(ota)
 MAKE_PSTR_WORD(passwd)
 MAKE_PSTR_WORD(password)
+MAKE_PSTR_WORD(pressure)
 MAKE_PSTR_WORD(reconnect)
 MAKE_PSTR_WORD(restart)
 MAKE_PSTR_WORD(scan)
+MAKE_PSTR_WORD(sensor)
 MAKE_PSTR_WORD(set)
 MAKE_PSTR_WORD(show)
 MAKE_PSTR_WORD(ssid)
@@ -89,11 +98,13 @@ MAKE_PSTR_WORD(su)
 MAKE_PSTR_WORD(sync)
 MAKE_PSTR_WORD(syslog)
 MAKE_PSTR_WORD(system)
+MAKE_PSTR_WORD(temperature)
 MAKE_PSTR_WORD(type)
 MAKE_PSTR_WORD(unknown)
 MAKE_PSTR_WORD(uptime)
 MAKE_PSTR_WORD(version)
 MAKE_PSTR_WORD(wifi)
+MAKE_PSTR(altitude_optional, "[altitude above sea level in m]")
 MAKE_PSTR(asterisks, "********")
 MAKE_PSTR(host_is_fmt, "Host = %s")
 MAKE_PSTR(id_mandatory, "<id>")
@@ -109,7 +120,9 @@ MAKE_PSTR(new_password_prompt2, "Retype new password: ")
 MAKE_PSTR(ota_enabled_fmt, "OTA %S");
 MAKE_PSTR(ota_password_fmt, "OTA Password = %S");
 MAKE_PSTR(password_prompt, "Password: ")
+MAKE_PSTR(pressure_optional, "[pressure in mbar]")
 MAKE_PSTR(seconds_optional, "[seconds]")
+MAKE_PSTR(temperature_optional, "[temperature in °C]")
 MAKE_PSTR(unset, "<unset>")
 MAKE_PSTR(wifi_ssid_fmt, "WiFi SSID = %s");
 MAKE_PSTR(wifi_password_fmt, "WiFi Password = %S");
@@ -144,6 +157,7 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	auto main_exit_admin_function = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.logger().log(LogLevel::INFO, LogFacility::AUTH, "Admin session closed on console %s", dynamic_cast<SCD30Shell&>(shell).console_name().c_str());
 		shell.remove_flags(CommandFlags::ADMIN);
+		shell.add_flags(CommandFlags::USER_ONLY);
 	};
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(exit)},
@@ -284,6 +298,40 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 					});
 	});
 
+	auto sensor_altitude_compensation = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		unsigned long value = config.sensor_ambient_pressure();
+
+		shell.printfln(F("Altitude compensation: %lum"), value);
+	};
+
+	auto sensor_ambient_pressure = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		unsigned long value = config.sensor_ambient_pressure();
+
+		if (value != 0) {
+			shell.printfln(F("Ambient pressure compensation: %lu mbar"), value);
+		} else {
+			shell.println(F("Ambient pressure compensation: disabled"));
+		}
+	};
+
+	auto sensor_measurement_interval = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		unsigned long value = config.sensor_measurement_interval();
+
+		shell.printfln(F("Measurement interval: %lus"), value);
+	};
+
+	auto sensor_temperature_offset = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		unsigned long value = config.sensor_temperature_offset();
+		unsigned long major = value / 100;
+		unsigned long minor = value % 100;
+
+		shell.printfln(F("Temperature offset: %lu.%02lu°C"), major, minor);
+	};
+
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(wifi), F_(ssid)}, flash_string_vector{F_(name_mandatory)},
 			[] (Shell &shell, const std::vector<std::string> &arguments) {
 		Config config;
@@ -324,6 +372,17 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	};
 	auto show_network = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::print_status(shell);
+	};
+	auto show_sensor = [=] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		shell.printfln(F("Sensor firmware: %s"), App::sensor().firmware_version().c_str());
+		sensor_altitude_compensation(shell, NO_ARGUMENTS);
+		sensor_ambient_pressure(shell, NO_ARGUMENTS);
+		sensor_measurement_interval(shell, NO_ARGUMENTS);
+		sensor_temperature_offset(shell, NO_ARGUMENTS);
+		shell.println();
+		shell.printfln(F("Temperature:       %.2f°C"), App::sensor().temperature_c());
+		shell.printfln(F("Relative humidity: %.2f%%"), App::sensor().relative_humidity_pc());
+		shell.printfln(F("CO₂:               %.2f ppm"), App::sensor().co2_ppm());
 	};
 	auto show_system = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.printfln(F("Chip ID:       0x%08x"), ESP.getChipId());
@@ -374,6 +433,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		shell.println();
 		show_network(shell, NO_ARGUMENTS);
 		shell.println();
+		show_sensor(shell, NO_ARGUMENTS);
+		shell.println();
 		show_system(shell, NO_ARGUMENTS);
 		shell.println();
 		show_uptime(shell, NO_ARGUMENTS);
@@ -382,15 +443,124 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	});
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(memory)}, show_memory);
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(network)}, show_network);
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(sensor)}, show_sensor);
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(system)}, show_system);
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(uptime)}, show_uptime);
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(version)}, show_version);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(altitude), F_(compensation)},
+		sensor_altitude_compensation);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(altitude), F_(compensation)},
+			flash_string_vector{F_(altitude_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+
+		if (!arguments.empty()) {
+			unsigned long value = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%lu", &value);
+
+			if (ret < 1) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.sensor_altitude_compensation(value);
+			config.commit();
+			App::config_sensor({Operation::CONFIG_ALTITUDE_COMPENSATION});
+		}
+
+		sensor_altitude_compensation(shell, NO_ARGUMENTS);
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(ambient), F_(pressure)},
+		sensor_ambient_pressure);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(ambient), F_(pressure)},
+			flash_string_vector{F_(pressure_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+
+		if (!arguments.empty()) {
+			unsigned long value = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%lu", &value);
+
+			if (ret < 1) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.sensor_ambient_pressure(value);
+			config.commit();
+			App::config_sensor({Operation::CONFIG_AMBIENT_PRESSURE});
+		}
+
+		sensor_ambient_pressure(shell, NO_ARGUMENTS);
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(measurement), F_(interval)},
+		sensor_measurement_interval);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(measurement), F_(interval)},
+			flash_string_vector{F_(seconds_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+
+		if (!arguments.empty()) {
+			unsigned long value = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%lu", &value);
+
+			if (ret < 1) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.sensor_measurement_interval(value);
+			config.commit();
+			App::config_sensor({Operation::CONFIG_CONTINUOUS_MEASUREMENT});
+		}
+
+		sensor_measurement_interval(shell, NO_ARGUMENTS);
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(temperature), F_(offset)},
+		sensor_temperature_offset);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(temperature), F_(offset)},
+			flash_string_vector{F_(temperature_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+
+		if (!arguments.empty()) {
+			unsigned int major = 0;
+			unsigned int minor = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%u.%u", &major, &minor);
+
+			if (ret < 2) {
+				minor = 0;
+			}
+
+			unsigned long value = major * 100 + minor;
+
+			if (ret < 1 || minor > 100 || major > UINT16_MAX / 100 || value > UINT16_MAX) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.sensor_temperature_offset(value);
+			config.commit();
+			App::config_sensor({Operation::CONFIG_TEMPERATURE_OFFSET});
+		}
+
+		sensor_temperature_offset(shell, NO_ARGUMENTS);
+	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(su)},
 			[=] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		auto become_admin = [] (Shell &shell) {
 			shell.logger().log(LogLevel::NOTICE, LogFacility::AUTH, F("Admin session opened on console %s"), dynamic_cast<SCD30Shell&>(shell).console_name().c_str());
 			shell.add_flags(CommandFlags::ADMIN);
+			shell.remove_flags(CommandFlags::USER_ONLY);
 		};
 
 		if (shell.has_flags(CommandFlags::LOCAL)) {
@@ -558,7 +728,7 @@ std::vector<bool> SCD30StreamConsole::ptys_;
 
 SCD30StreamConsole::SCD30StreamConsole(Stream &stream, bool local)
 		: uuid::console::Shell(commands_, ShellContext::MAIN,
-			local ? (CommandFlags::USER | CommandFlags::LOCAL) : CommandFlags::USER),
+			(local ? (CommandFlags::USER | CommandFlags::LOCAL) : CommandFlags::USER) | CommandFlags::USER_ONLY),
 		  uuid::console::StreamConsole(stream),
 		  SCD30Shell(),
 		  name_(uuid::read_flash_string(F("ttyS0"))),
@@ -569,7 +739,7 @@ SCD30StreamConsole::SCD30StreamConsole(Stream &stream, bool local)
 }
 
 SCD30StreamConsole::SCD30StreamConsole(Stream &stream, const IPAddress &addr, uint16_t port)
-		: uuid::console::Shell(commands_, ShellContext::MAIN, CommandFlags::USER),
+		: uuid::console::Shell(commands_, ShellContext::MAIN, CommandFlags::USER | CommandFlags::USER_ONLY),
 		  uuid::console::StreamConsole(stream),
 		  SCD30Shell(),
 		  addr_(addr),

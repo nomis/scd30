@@ -21,6 +21,7 @@
 
 #include <Arduino.h>
 
+#include <initializer_list>
 #include <memory>
 #include <vector>
 
@@ -54,6 +55,9 @@ public:
 
 	static void config_syslog();
 	static void config_ota();
+	static void config_sensor(std::initializer_list<Operation> operations = {});
+
+	static const Sensor& sensor() { return sensor_; }
 
 private:
 	App() = delete;

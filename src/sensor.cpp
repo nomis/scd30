@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <bitset>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <initializer_list>
 #include <functional>
@@ -273,10 +274,17 @@ retry:
 			} else {
 				uint32_t now = current_time();
 				float co2 = convert_f(&response->data()[0]);
-				float temp = convert_f(&response->data()[2]);
-				float rh = convert_f(&response->data()[4]);
+				temperature_c_ = convert_f(&response->data()[2]);
+				relative_humidity_pc_ = convert_f(&response->data()[4]);
 
-				logger_.debug(F("Temperature %.2f°C, Relative humidity %.2f%%, CO₂ %.2f ppm"), temp, rh, co2);
+				logger_.debug(F("Temperature %.2f°C, Relative humidity %.2f%%, CO₂ %.2f ppm"),
+					temperature_c_, relative_humidity_pc_, co2);
+
+				if (co2 >= MINIMUM_CO2_PPM) {
+					co2_ppm_ = co2;
+				} else {
+					co2_ppm_ = NAN;
+				}
 
 				last_reading_s_ = now;
 				measurement_status_ = Measurement::IDLE;
