@@ -87,6 +87,7 @@ MAKE_PSTR_WORD(ota)
 MAKE_PSTR_WORD(passwd)
 MAKE_PSTR_WORD(password)
 MAKE_PSTR_WORD(pressure)
+MAKE_PSTR_WORD(reading)
 MAKE_PSTR_WORD(reconnect)
 MAKE_PSTR_WORD(restart)
 MAKE_PSTR_WORD(scan)
@@ -324,6 +325,17 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		shell.printfln(F("Measurement interval: %lus"), value);
 	};
 
+	auto sensor_reading_interval = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		unsigned long value = config.take_measurement_interval();
+
+		if (value != 0) {
+			shell.printfln(F("Reading interval: %lus"), value);
+		} else {
+			shell.println(F("Readings disabled"));
+		}
+	};
+
 	auto sensor_temperature_offset = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Config config;
 		unsigned long value = config.sensor_temperature_offset();
@@ -536,6 +548,31 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		}
 
 		sensor_measurement_interval(shell, NO_ARGUMENTS);
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
+		flash_string_vector{F_(sensor), F_(reading), F_(interval)}, sensor_reading_interval);
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(reading), F_(interval)},
+			flash_string_vector{F_(seconds_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+
+		if (!arguments.empty()) {
+			unsigned long value = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%lu", &value);
+
+			if (ret < 1) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.take_measurement_interval(value);
+			config.commit();
+			App::config_sensor({Operation::TAKE_MEASUREMENT});
+		}
+
+		sensor_reading_interval(shell, NO_ARGUMENTS);
 	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
