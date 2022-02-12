@@ -156,4 +156,8 @@ void App::config_sensor(std::initializer_list<Operation> operations) {
 	sensor_.config(operations);
 }
 
+void App::calibrate_sensor(unsigned long ppm) {
+	sensor_.calibrate(ppm);
+}
+
 } // namespace scd30

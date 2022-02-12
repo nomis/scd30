@@ -249,6 +249,26 @@ retry:
 			true, &ambient_pressure, pressure_value_str);
 		break;
 
+	case Operation::CALIBRATE:
+		if (!response_) {
+			logger_.info(F("Writing calibration value of %u ppm"), calibration_ppm_);
+			response_ = client_.write_holding_register(DEVICE_ADDRESS, FORCED_RECALIBRATION_ADDRESS, calibration_ppm_);
+		} else if (response_->done()) {
+			auto response = std::static_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+
+			if (response->data().size() < 1) {
+				logger_.err(F("Failed to set calibration value"));
+				reset();
+				return;
+			} else {
+				logger_.info(F("Calibrated CO₂ ppm: %u"), response->data()[0]);
+			}
+
+			response_.reset();
+			current_operation_ = Operation::NONE;
+		}
+		break;
+
 	case Operation::TAKE_MEASUREMENT:
 		if (!response_) {
 			if (digitalRead(ready_pin_) == HIGH) {
@@ -375,6 +395,15 @@ uint16_t Sensor::ambient_pressure() {
 		return value;
 	} else {
 		return std::max(700UL, std::min(1200UL, value));
+	}
+}
+
+void Sensor::calibrate(unsigned long ppm) {
+	uint16_t value = std::max(MINIMUM_CALIBRATION_PPM, std::min(MAXIMUM_CALIBRATION_PPM, ppm));
+
+	if (ppm == value) {
+		calibration_ppm_ = value;
+		pending_operations_.set(Operation::CALIBRATE);
 	}
 }
 

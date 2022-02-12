@@ -42,6 +42,7 @@ enum Operation : uint8_t {
 	CONFIG_ALTITUDE_COMPENSATION,
 	CONFIG_CONTINUOUS_MEASUREMENT,
 	CONFIG_AMBIENT_PRESSURE,
+	CALIBRATE,
 	TAKE_MEASUREMENT,
 };
 
@@ -65,14 +66,18 @@ public:
 	static constexpr uint16_t SOFT_RESET_ADDRESS = 0x0034;
 	static constexpr uint16_t AMBIENT_PRESSURE_ADDRESS = 0x0036;
 	static constexpr uint16_t ALTITUDE_COMPENSATION_ADDRESS = 0x0038;
+	static constexpr uint16_t FORCED_RECALIBRATION_ADDRESS = 0x0039;
 	static constexpr uint16_t ASC_CONFIG_ADDRESS = 0x003A;
 	static constexpr uint16_t TEMPERATURE_OFFSET_ADDRESS = 0x003B;
 
 	static constexpr float MINIMUM_CO2_PPM = 200;
+	static constexpr unsigned long MINIMUM_CALIBRATION_PPM = 400;
+	static constexpr unsigned long MAXIMUM_CALIBRATION_PPM = 2000;
 
 	Sensor(::HardwareSerial &device, int ready_pin);
 	void start();
 	void config(std::initializer_list<Operation> operations = {});
+	void calibrate(unsigned long ppm);
 	void reset(uint32_t wait_ms = RESET_PRE_DELAY_MS);
 	void loop();
 
@@ -110,6 +115,7 @@ private:
 	uint32_t reset_start_ms_;
 	uint32_t reset_wait_ms_;
 	bool reset_complete_;
+	uint16_t calibration_ppm_;
 
 	uint32_t last_reading_s_ = 0;
 	uint32_t measurement_start_ms_;

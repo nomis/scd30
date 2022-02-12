@@ -56,6 +56,7 @@ public:
 	static void config_syslog();
 	static void config_ota();
 	static void config_sensor(std::initializer_list<Operation> operations = {});
+	static void calibrate_sensor(unsigned long ppm);
 
 	static const Sensor& sensor() { return sensor_; }
 

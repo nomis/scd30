@@ -56,6 +56,7 @@ namespace scd30 {
 MAKE_PSTR_WORD(altitude)
 MAKE_PSTR_WORD(ambient)
 MAKE_PSTR_WORD(auto)
+MAKE_PSTR_WORD(calibrate)
 MAKE_PSTR_WORD(compensation)
 MAKE_PSTR_WORD(connect)
 MAKE_PSTR_WORD(console)
@@ -120,6 +121,7 @@ MAKE_PSTR(new_password_prompt2, "Retype new password: ")
 MAKE_PSTR(ota_enabled_fmt, "OTA %S");
 MAKE_PSTR(ota_password_fmt, "OTA Password = %S");
 MAKE_PSTR(password_prompt, "Password: ")
+MAKE_PSTR(ppm_mandatory, "<CO₂ concentration in ppm>")
 MAKE_PSTR(pressure_optional, "[pressure in mbar]")
 MAKE_PSTR(seconds_optional, "[seconds]")
 MAKE_PSTR(temperature_optional, "[temperature in °C]")
@@ -496,6 +498,20 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		}
 
 		sensor_ambient_pressure(shell, NO_ARGUMENTS);
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(calibrate)},
+			flash_string_vector{F_(ppm_mandatory)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		unsigned long value = 0;
+		int ret = std::sscanf(arguments.front().c_str(), "%lu", &value);
+
+		if (ret < 1 || value < Sensor::MINIMUM_CALIBRATION_PPM || value > Sensor::MAXIMUM_CALIBRATION_PPM) {
+			shell.println(F("Invalid value"));
+			return;
+		}
+
+		App::calibrate_sensor(value);
 	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(measurement), F_(interval)},
