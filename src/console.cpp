@@ -282,22 +282,22 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(ota), F_(password)},
 			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.enter_password(F_(new_password_prompt1), [] (Shell &shell, bool completed, const std::string &password1) {
+				if (completed) {
+					shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
 						if (completed) {
-							shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
-								if (completed) {
-									if (password1 == password2) {
-										Config config;
-										config.ota_password(password2);
-										config.commit();
-										App::config_ota();
-										shell.println(F("OTA password updated"));
-									} else {
-										shell.println(F("Passwords do not match"));
-									}
-								}
-							});
+							if (password1 == password2) {
+								Config config;
+								config.ota_password(password2);
+								config.commit();
+								App::config_ota();
+								shell.println(F("OTA password updated"));
+							} else {
+								shell.println(F("Passwords do not match"));
+							}
 						}
 					});
+				}
+			});
 	});
 
 	auto sensor_altitude_compensation = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
@@ -360,21 +360,21 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(wifi), F_(password)},
 			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.enter_password(F_(new_password_prompt1), [] (Shell &shell, bool completed, const std::string &password1) {
+				if (completed) {
+					shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
 						if (completed) {
-							shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
-								if (completed) {
-									if (password1 == password2) {
-										Config config;
-										config.wifi_password(password2);
-										config.commit();
-										shell.println(F("WiFi password updated"));
-									} else {
-										shell.println(F("Passwords do not match"));
-									}
-								}
-							});
+							if (password1 == password2) {
+								Config config;
+								config.wifi_password(password2);
+								config.commit();
+								shell.println(F("WiFi password updated"));
+							} else {
+								shell.println(F("Passwords do not match"));
+							}
 						}
 					});
+				}
+			});
 	});
 
 	auto show_memory = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
@@ -412,8 +412,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 
 		FSInfo info;
 		if (LittleFS.info(info)) {
-			shell.printfln(F("LittleFS size:   %zu bytes (block size %zu bytes, page size %zu bytes)"), info.totalBytes, info.blockSize, info.pageSize);
-			shell.printfln(F("LittleFS used:   %zu bytes (%.2f%%)"), info.usedBytes, (float)info.usedBytes / (float)info.totalBytes);
+			shell.printfln(F("LittleFS size: %zu bytes (block size %zu bytes, page size %zu bytes)"), info.totalBytes, info.blockSize, info.pageSize);
+			shell.printfln(F("LittleFS used: %zu bytes (%.2f%%)"), info.usedBytes, (float)info.usedBytes / (float)info.totalBytes);
 		}
 	};
 	auto show_uptime = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
