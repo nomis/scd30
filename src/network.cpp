@@ -171,16 +171,15 @@ void Network::print_status(uuid::console::Shell &shell) {
 
 			shell.printfln(F("IPv4 nameserver: %s"),
 					uuid::printable_to_string(WiFi.dnsIP()).c_str());
-			shell.println();
 
 #if LWIP_IPV6
+			shell.println();
 			for (size_t i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
 				if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, i))) {
 					shell.printfln(F("IPv6 address: %s"),
 							uuid::printable_to_string(IPAddress(netif_ip_addr6(netif_default, i))).c_str());
 				}
 			}
-			shell.println();
 #endif
 		}
 		break;
