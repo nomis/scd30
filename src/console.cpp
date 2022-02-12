@@ -159,7 +159,6 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	auto main_exit_admin_function = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.logger().log(LogLevel::INFO, LogFacility::AUTH, "Admin session closed on console %s", dynamic_cast<SCD30Shell&>(shell).console_name().c_str());
 		shell.remove_flags(CommandFlags::ADMIN);
-		shell.add_flags(CommandFlags::USER_ONLY);
 	};
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(exit)},
@@ -450,8 +449,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(uptime)}, show_uptime);
 	commands->add_command(ShellContext::MAIN, CommandFlags::USER, flash_string_vector{F_(show), F_(version)}, show_version);
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(altitude), F_(compensation)},
-		sensor_altitude_compensation);
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
+		flash_string_vector{F_(sensor), F_(altitude), F_(compensation)}, sensor_altitude_compensation);
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(altitude), F_(compensation)},
 			flash_string_vector{F_(altitude_optional)},
@@ -475,8 +474,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		sensor_altitude_compensation(shell, NO_ARGUMENTS);
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(ambient), F_(pressure)},
-		sensor_ambient_pressure);
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
+		flash_string_vector{F_(sensor), F_(ambient), F_(pressure)}, sensor_ambient_pressure);
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(ambient), F_(pressure)},
 			flash_string_vector{F_(pressure_optional)},
@@ -514,8 +513,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		App::calibrate_sensor(value);
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(measurement), F_(interval)},
-		sensor_measurement_interval);
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
+		flash_string_vector{F_(sensor), F_(measurement), F_(interval)}, sensor_measurement_interval);
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(measurement), F_(interval)},
 			flash_string_vector{F_(seconds_optional)},
@@ -539,8 +538,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		sensor_measurement_interval(shell, NO_ARGUMENTS);
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::USER_ONLY, flash_string_vector{F_(sensor), F_(temperature), F_(offset)},
-		sensor_temperature_offset);
+	commands->add_command(ShellContext::MAIN, CommandFlags::USER, CommandFlags::ADMIN,
+		flash_string_vector{F_(sensor), F_(temperature), F_(offset)}, sensor_temperature_offset);
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sensor), F_(temperature), F_(offset)},
 			flash_string_vector{F_(temperature_optional)},
@@ -576,7 +575,6 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		auto become_admin = [] (Shell &shell) {
 			shell.logger().log(LogLevel::NOTICE, LogFacility::AUTH, F("Admin session opened on console %s"), dynamic_cast<SCD30Shell&>(shell).console_name().c_str());
 			shell.add_flags(CommandFlags::ADMIN);
-			shell.remove_flags(CommandFlags::USER_ONLY);
 		};
 
 		if (shell.has_flags(CommandFlags::LOCAL)) {
@@ -744,7 +742,7 @@ std::vector<bool> SCD30StreamConsole::ptys_;
 
 SCD30StreamConsole::SCD30StreamConsole(Stream &stream, bool local)
 		: uuid::console::Shell(commands_, ShellContext::MAIN,
-			(local ? (CommandFlags::USER | CommandFlags::LOCAL) : CommandFlags::USER) | CommandFlags::USER_ONLY),
+			local ? (CommandFlags::USER | CommandFlags::LOCAL) : CommandFlags::USER),
 		  uuid::console::StreamConsole(stream),
 		  SCD30Shell(),
 		  name_(uuid::read_flash_string(F("ttyS0"))),
@@ -755,7 +753,7 @@ SCD30StreamConsole::SCD30StreamConsole(Stream &stream, bool local)
 }
 
 SCD30StreamConsole::SCD30StreamConsole(Stream &stream, const IPAddress &addr, uint16_t port)
-		: uuid::console::Shell(commands_, ShellContext::MAIN, CommandFlags::USER | CommandFlags::USER_ONLY),
+		: uuid::console::Shell(commands_, ShellContext::MAIN, CommandFlags::USER),
 		  uuid::console::StreamConsole(stream),
 		  SCD30Shell(),
 		  addr_(addr),
