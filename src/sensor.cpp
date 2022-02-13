@@ -59,17 +59,17 @@ Sensor::Sensor(::HardwareSerial &device, int ready_pin, Report &report)
 		: client_(device), ready_pin_(ready_pin), report_(report) {
 	pinMode(ready_pin_, INPUT);
 
-	config_operations_.set(Operation::CONFIG_AUTOMATIC_CALIBRATION);
-	config_operations_.set(Operation::CONFIG_TEMPERATURE_OFFSET);
-	config_operations_.set(Operation::CONFIG_ALTITUDE_COMPENSATION);
-	config_operations_.set(Operation::CONFIG_CONTINUOUS_MEASUREMENT);
-	config_operations_.set(Operation::CONFIG_AMBIENT_PRESSURE);
+	config_operations_.set(static_cast<size_t>(Operation::CONFIG_AUTOMATIC_CALIBRATION));
+	config_operations_.set(static_cast<size_t>(Operation::CONFIG_TEMPERATURE_OFFSET));
+	config_operations_.set(static_cast<size_t>(Operation::CONFIG_ALTITUDE_COMPENSATION));
+	config_operations_.set(static_cast<size_t>(Operation::CONFIG_CONTINUOUS_MEASUREMENT));
+	config_operations_.set(static_cast<size_t>(Operation::CONFIG_AMBIENT_PRESSURE));
 
 	client_.default_unicast_timeout_ms(MODBUS_TIMEOUT_MS);
 }
 
 void Sensor::start() {
-	pending_operations_.set(Operation::READ_FIRMWARE_VERSION);
+	pending_operations_.set(static_cast<size_t>(Operation::READ_FIRMWARE_VERSION));
 	config();
 }
 
@@ -80,18 +80,18 @@ void Sensor::config(std::initializer_list<Operation> operations) {
 		pending_operations_ |= config_operations_;
 	} else {
 		for (auto operation : operations) {
-			if (config_operations_[operation]) {
-				pending_operations_.set(operation);
+			if (config_operations_[static_cast<size_t>(operation)]) {
+				pending_operations_.set(static_cast<size_t>(operation));
 			}
 		}
 	}
 
-	interval_ = std::max(0UL, std::min((unsigned long)UINT8_MAX, config.take_measurement_interval()));
+	interval_ = std::max(0UL, std::min(static_cast<unsigned long>(UINT8_MAX), config.take_measurement_interval()));
 }
 
 void Sensor::reset(uint32_t wait_ms) {
 	pending_operations_.reset();
-	pending_operations_.set(Operation::SOFT_RESET);
+	pending_operations_.set(static_cast<size_t>(Operation::SOFT_RESET));
 	current_operation_ = Operation::NONE;
 	response_.reset();
 	start();
@@ -119,7 +119,7 @@ void Sensor::loop() {
 
 		if (now > last_reading_s_ && now % interval_ == 0) {
 			logger_.trace(F("Take measurement"));
-			pending_operations_.set(Operation::TAKE_MEASUREMENT);
+			pending_operations_.set(static_cast<size_t>(Operation::TAKE_MEASUREMENT));
 			measurement_status_ = Measurement::PENDING;
 		}
 	}
@@ -131,7 +131,7 @@ retry:
 			int bit = ffs(pending_operations_.to_ulong());
 			if (bit != 0) {
 				current_operation_ = static_cast<Operation>(bit - 1);
-				pending_operations_.reset(current_operation_);
+				pending_operations_.reset(static_cast<size_t>(current_operation_));
 			}
 			goto retry;
 		}
@@ -381,11 +381,11 @@ uint16_t Sensor::automatic_calibration() {
 }
 
 uint16_t Sensor::temperature_offset() {
-	return std::max(0UL, std::min((unsigned long)UINT16_MAX, Config().sensor_temperature_offset()));
+	return std::max(0UL, std::min(static_cast<unsigned long>(UINT16_MAX), Config().sensor_temperature_offset()));
 }
 
 uint16_t Sensor::altitude_compensation() {
-	return std::max(0UL, std::min((unsigned long)UINT16_MAX, Config().sensor_altitude_compensation()));
+	return std::max(0UL, std::min(static_cast<unsigned long>(UINT16_MAX), Config().sensor_altitude_compensation()));
 }
 
 uint16_t Sensor::measurement_interval() {
@@ -407,7 +407,7 @@ void Sensor::calibrate(unsigned long ppm) {
 
 	if (ppm == value) {
 		calibration_ppm_ = value;
-		pending_operations_.set(Operation::CALIBRATE);
+		pending_operations_.set(static_cast<size_t>(Operation::CALIBRATE));
 	}
 }
 

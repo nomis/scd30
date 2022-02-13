@@ -35,7 +35,7 @@
 
 namespace scd30 {
 
-enum Operation : uint8_t {
+enum class Operation : uint8_t {
 	NONE = 32,
 	SOFT_RESET = 0,
 	READ_FIRMWARE_VERSION,
@@ -48,7 +48,7 @@ enum Operation : uint8_t {
 	TAKE_MEASUREMENT,
 };
 
-enum Measurement : uint8_t {
+enum class Measurement : uint8_t {
 	IDLE,
 	PENDING,
 	WAITING,

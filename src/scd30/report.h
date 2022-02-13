@@ -21,6 +21,7 @@
 
 #include <Arduino.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 #include <WiFiClientSecureBearSSL.h>
 
 #include <cmath>
@@ -34,6 +35,8 @@ namespace scd30 {
 struct __attribute__((packed)) Reading {
 	static constexpr size_t TEMP_BITS = 14;
 	static constexpr int TEMP_DIV = 100;
+	static constexpr int TEMP_MUL = 100 / TEMP_DIV;
+	static_assert(TEMP_DIV * TEMP_MUL == 100);
 	static constexpr long TEMP_MIN = -(1 << (TEMP_BITS - 1)) + 1;
 	static_assert(TEMP_MIN == -8191); /* -81.91°C */
 	static constexpr long TEMP_MAX = (1 << (TEMP_BITS - 1)) - 1;
@@ -42,6 +45,8 @@ struct __attribute__((packed)) Reading {
 
 	static constexpr size_t RHUM_BITS = 14;
 	static constexpr int RHUM_DIV = 100;
+	static constexpr int RHUM_MUL = 100 / RHUM_DIV;
+	static_assert(RHUM_DIV * RHUM_MUL == 100);
 	static constexpr long RHUM_MIN = 0; /* 0% */
 	static constexpr long RHUM_MAX = (1 << RHUM_BITS) - 2;
 	static_assert(RHUM_MAX == 16382); /* 163.82% */
@@ -49,6 +54,8 @@ struct __attribute__((packed)) Reading {
 
 	static constexpr size_t CO2_BITS = 20;
 	static constexpr int CO2_DIV = 20;
+	static constexpr int CO2_MUL = 100 / CO2_DIV;
+	static_assert(CO2_DIV * CO2_MUL == 100);
 	static constexpr long CO2_MIN = 0; /* 0 ppm */
 	static constexpr long CO2_MAX = (1 << CO2_BITS) - 2;
 	static_assert(CO2_MAX == 1048574); /* 41942.96 ppm */
@@ -83,6 +90,14 @@ struct __attribute__((packed)) Reading {
 };
 static_assert(sizeof(Reading) == 10);
 
+enum class UploadState : uint8_t {
+	IDLE,
+	CONNECT,
+	SEND,
+	RECEIVE,
+	CLEANUP,
+};
+
 class Report {
 public:
 	void config();
@@ -91,11 +106,12 @@ public:
 
 private:
 	static constexpr size_t MAXIMUM_STORE_READINGS = 360; /* 30 minutes at a 5 second interval */
-	static constexpr size_t MAXIMUM_UPLOAD_READINGS = 60; /* 5 minutes at a 5 second interval */
+	static constexpr size_t MAXIMUM_UPLOAD_BYTES = 640;
+	static constexpr int HTTP_TIMEOUT_MS = 2000;
 
 	static uuid::log::Logger logger_;
 
-	void upload();
+	void upload(bool begin = false);
 
 	std::deque<Reading> readings_;
 	bool enabled_ = false;
@@ -108,8 +124,13 @@ private:
 
 	BearSSL::CertStore tls_certs_;
 	BearSSL::WiFiClientSecure tls_client_;
+	WiFiClient tcp_client_;
+	WiFiClient *conn_client_ = nullptr;
 	bool tls_loaded_ = false;
 	HTTPClient http_client_;
+	UploadState state_ = UploadState::IDLE;
+	uint32_t upload_ts_first_;
+	uint32_t upload_ts_last_;
 };
 
 } // namespace scd30

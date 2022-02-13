@@ -115,6 +115,7 @@ void App::loop() {
 		}
 	} else {
 		sensor_.loop();
+		report_.loop();
 	}
 }
 
