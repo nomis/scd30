@@ -19,6 +19,9 @@
 #include <scd30/report.h>
 
 #include <Arduino.h>
+#include <FS.h>
+#include <LittleFS.h>
+#include <WiFiClientSecureBearSSL.h>
 
 #include <uuid/log.h>
 
@@ -32,6 +35,18 @@ uuid::log::Logger Report::logger_{FPSTR(__pstr__logger_name), uuid::log::Facilit
 
 void Report::config() {
 	Config config;
+
+	if (!tls_loaded_) {
+		tls_client_.setBufferSizes(512, 512);
+		tls_client_.setSSLVersion(BR_TLS12);
+
+		logger_.info(F("Loading CA certificates"));
+		int certs = tls_certs_.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+		tls_client_.setCertStore(&tls_certs_);
+		logger_.info(F("Loaded CA certificates: %u"), certs);
+
+		tls_loaded_ = true;
+	}
 
 	bool was_enabled = enabled_;
 

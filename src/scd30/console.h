@@ -64,9 +64,6 @@ protected:
 	std::string prompt_suffix() override;
 	void end_of_transmission() override;
 	void stopped() override;
-
-private:
-	std::string sensor_;
 };
 
 class SCD30StreamConsole: public uuid::console::StreamConsole, public SCD30Shell {

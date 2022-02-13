@@ -138,8 +138,8 @@ bool Config::mounted_ = false;
 bool Config::unavailable_ = false;
 bool Config::loaded_ = false;
 
-Config::Config() {
-	if (!unavailable_ && !mounted_) {
+Config::Config(bool mount) {
+	if (!unavailable_ && !mounted_ && mount) {
 		logger_.info(F("Mounting LittleFS filesystem"));
 		if (LittleFS.begin()) {
 			logger_.info(F("Mounted LittleFS filesystem"));
@@ -158,9 +158,13 @@ Config::Config() {
 	}
 
 	if (!loaded_) {
-		logger_.err(F("Config failure, using defaults"));
-		read_config(ArduinoJson::StaticJsonDocument<0>());
-		loaded_ = true;
+		if (mount) {
+			logger_.err(F("Config failure, using defaults"));
+			read_config(ArduinoJson::StaticJsonDocument<0>());
+			loaded_ = true;
+		} else {
+			logger_.crit(F("Config accessed before load"));
+		}
 	}
 }
 
@@ -175,6 +179,17 @@ void Config::syslog_host(const std::string &syslog_host) {
 }
 
 void Config::commit() {
+	if (!unavailable_ && !mounted_) {
+		logger_.info(F("Mounting LittleFS filesystem"));
+		if (LittleFS.begin()) {
+			logger_.info(F("Mounted LittleFS filesystem"));
+			mounted_ = true;
+		} else {
+			logger_.alert(F("Unable to mount LittleFS filesystem"));
+			unavailable_ = true;
+		}
+	}
+
 	if (mounted_) {
 		std::string filename = uuid::read_flash_string(FPSTR(__pstr__config_filename));
 		std::string backup_filename = uuid::read_flash_string(FPSTR(__pstr__config_backup_filename));
@@ -184,6 +199,15 @@ void Config::commit() {
 				write_config(backup_filename);
 			}
 		}
+	}
+}
+
+void Config::umount() {
+	if (mounted_) {
+		logger_.info(F("Unmounting LittleFS filesystem"));
+		LittleFS.end();
+		logger_.info(F("Unmounted LittleFS filesystem"));
+		mounted_ = false;
 	}
 }
 

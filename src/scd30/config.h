@@ -29,7 +29,7 @@ namespace scd30 {
 
 class Config {
 public:
-	Config();
+	Config(bool mount = true);
 	~Config() = default;
 
 	std::string admin_password() const;
@@ -96,6 +96,7 @@ public:
 	void report_sensor_name(const std::string &report_sensor_name);
 
 	void commit();
+	void umount();
 
 private:
 	static constexpr size_t BUFFER_SIZE = 4096;

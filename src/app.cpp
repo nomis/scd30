@@ -147,6 +147,37 @@ void App::config_ota() {
 			return;
 		}
 		ArduinoOTA.setPassword(config.ota_password().c_str());
+		ArduinoOTA.onStart([] () {
+			logger_.notice("OTA start");
+
+			Config config;
+			config.umount();
+
+			while (syslog_.current_log_messages()) {
+				syslog_.loop();
+			}
+		});
+		ArduinoOTA.onEnd([] () {
+			logger_.notice("OTA end");
+
+			Config config;
+			config.commit();
+
+			while (syslog_.current_log_messages()) {
+				syslog_.loop();
+			}
+		});
+		ArduinoOTA.onError([] (ota_error_t error) {
+			if (error == OTA_END_ERROR) {
+				logger_.notice("OTA error");
+				Config config;
+				config.commit();
+
+				while (syslog_.current_log_messages()) {
+					syslog_.loop();
+				}
+			}
+		});
 		ArduinoOTA.begin(false);
 		ota_running_ = true;
 	} else if (ota_running_) {

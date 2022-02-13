@@ -1,3 +1,4 @@
 /.pio/
 /pio_local.ini
 /*.sublime-*
+/data/

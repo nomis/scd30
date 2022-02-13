@@ -20,6 +20,8 @@
 #define SCD30_REPORT_H_
 
 #include <Arduino.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecureBearSSL.h>
 
 #include <cmath>
 #include <deque>
@@ -103,6 +105,11 @@ private:
 	std::string username_;
 	std::string password_;
 	std::string sensor_name_;
+
+	BearSSL::CertStore tls_certs_;
+	BearSSL::WiFiClientSecure tls_client_;
+	bool tls_loaded_ = false;
+	HTTPClient http_client_;
 };
 
 } // namespace scd30

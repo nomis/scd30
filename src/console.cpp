@@ -105,6 +105,7 @@ MAKE_PSTR_WORD(system)
 MAKE_PSTR_WORD(temperature)
 MAKE_PSTR_WORD(threshold)
 MAKE_PSTR_WORD(type)
+MAKE_PSTR_WORD(umount)
 MAKE_PSTR_WORD(unknown)
 MAKE_PSTR_WORD(uptime)
 MAKE_PSTR_WORD(username)
@@ -789,6 +790,12 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		App::config_syslog();
 	});
 
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(umount)},
+			[] (Shell &shell __attribute__((unused)), const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		config.umount();
+	});
+
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(wifi), F_(connect)},
 			[&] (Shell &shell __attribute__((unused)), const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::connect();
@@ -845,7 +852,8 @@ void SCD30Shell::display_banner() {
 }
 
 std::string SCD30Shell::hostname_text() {
-	Config config;
+	Config config{false};
+
 	std::string hostname = config.hostname();
 
 	if (hostname.empty()) {
