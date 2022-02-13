@@ -55,6 +55,7 @@ bool App::ota_running_ = false;
 
 void App::start() {
 	pinMode(CONSOLE_PIN, INPUT_PULLUP);
+	delay(1);
 	local_console_ = digitalRead(CONSOLE_PIN) == LOW;
 	pinMode(CONSOLE_PIN, INPUT);
 
