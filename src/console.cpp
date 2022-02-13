@@ -806,17 +806,17 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		Network::disconnect();
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(wifi), F_(reconnect)},
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(wifi), F_(reconnect)},
 			[&] (Shell &shell __attribute__((unused)), const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::reconnect();
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(wifi), F_(scan)},
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(wifi), F_(scan)},
 			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::scan(shell);
 	});
 
-	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(wifi), F_(status)},
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(wifi), F_(status)},
 			[&] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::print_status(shell);
 	});
