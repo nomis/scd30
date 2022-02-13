@@ -31,6 +31,8 @@
 #include <uuid/log.h>
 #include <uuid/modbus.h>
 
+#include "scd30/report.h"
+
 namespace scd30 {
 
 enum Operation : uint8_t {
@@ -74,7 +76,7 @@ public:
 	static constexpr unsigned long MINIMUM_CALIBRATION_PPM = 400;
 	static constexpr unsigned long MAXIMUM_CALIBRATION_PPM = 2000;
 
-	Sensor(::HardwareSerial &device, int ready_pin);
+	Sensor(::HardwareSerial &device, int ready_pin, Report &report);
 	void start();
 	void config(std::initializer_list<Operation> operations = {});
 	void calibrate(unsigned long ppm);
@@ -126,6 +128,7 @@ private:
 	float temperature_c_ = NAN;
 	float relative_humidity_pc_ = NAN;
 	float co2_ppm_ = NAN;
+	Report &report_;
 };
 
 } // namespace scd30

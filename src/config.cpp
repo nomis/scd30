@@ -52,7 +52,13 @@ namespace scd30 {
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_ambient_pressure, "", 0) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5)
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5) \
+		SCD30_CONFIG_PRIMITIVE(bool, "", report_enabled, "", true) \
+		SCD30_CONFIG_PRIMITIVE(unsigned long, "", report_threshold, "", 12) \
+		SCD30_CONFIG_SIMPLE(std::string, "", report_url, "", "") \
+		SCD30_CONFIG_SIMPLE(std::string, "", report_username, "", "") \
+		SCD30_CONFIG_SIMPLE(std::string, "", report_password, "", "") \
+		SCD30_CONFIG_SIMPLE(std::string, "", report_sensor_name, "", "")
 
 /* Create member data and flash strings */
 #define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC

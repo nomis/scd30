@@ -28,6 +28,7 @@
 #endif
 #include <time.h>
 
+#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -89,6 +90,7 @@ MAKE_PSTR_WORD(password)
 MAKE_PSTR_WORD(pressure)
 MAKE_PSTR_WORD(reading)
 MAKE_PSTR_WORD(reconnect)
+MAKE_PSTR_WORD(report)
 MAKE_PSTR_WORD(restart)
 MAKE_PSTR_WORD(scan)
 MAKE_PSTR_WORD(sensor)
@@ -101,13 +103,17 @@ MAKE_PSTR_WORD(sync)
 MAKE_PSTR_WORD(syslog)
 MAKE_PSTR_WORD(system)
 MAKE_PSTR_WORD(temperature)
+MAKE_PSTR_WORD(threshold)
 MAKE_PSTR_WORD(type)
 MAKE_PSTR_WORD(unknown)
 MAKE_PSTR_WORD(uptime)
+MAKE_PSTR_WORD(username)
+MAKE_PSTR_WORD(url)
 MAKE_PSTR_WORD(version)
 MAKE_PSTR_WORD(wifi)
 MAKE_PSTR(altitude_optional, "[altitude above sea level in m]")
 MAKE_PSTR(asterisks, "********")
+MAKE_PSTR(count_optional, "[count]")
 MAKE_PSTR(host_is_fmt, "Host = %s")
 MAKE_PSTR(id_mandatory, "<id>")
 MAKE_PSTR(invalid_log_level, "Invalid log level")
@@ -127,6 +133,7 @@ MAKE_PSTR(pressure_optional, "[pressure in mbar]")
 MAKE_PSTR(seconds_optional, "[seconds]")
 MAKE_PSTR(temperature_optional, "[temperature in °C]")
 MAKE_PSTR(unset, "<unset>")
+MAKE_PSTR(url_optional, "[url]")
 MAKE_PSTR(wifi_ssid_fmt, "WiFi SSID = %s");
 MAKE_PSTR(wifi_password_fmt, "WiFi Password = %S");
 
@@ -225,6 +232,105 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 				});
 			}
 		});
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(password)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		shell.enter_password(F_(new_password_prompt1), [] (Shell &shell, bool completed, const std::string &password1) {
+				if (completed) {
+					shell.enter_password(F_(new_password_prompt2), [password1] (Shell &shell, bool completed, const std::string &password2) {
+						if (completed) {
+							if (password1 == password2) {
+								Config config;
+								config.report_password(password2);
+								config.commit();
+								if (config.report_password().empty()) {
+									shell.println(F("Cleared report password"));
+								} else {
+									shell.println(F("Set report password"));
+								}
+								App::config_report();
+							} else {
+								shell.println(F("Passwords do not match"));
+							}
+						}
+					});
+				}
+			});
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(sensor), F_(name)},
+			flash_string_vector{F_(name_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+		if (!arguments.empty()) {
+			config.report_sensor_name(arguments.front());
+			config.commit();
+			App::config_report();
+		}
+		shell.printfln(F("Report sensor name = %s"), config.report_sensor_name().c_str());
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(on)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		config.report_enabled(true);
+		config.commit();
+		App::config_report();
+		shell.println(F("Reporting enabled"));
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(off)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+		Config config;
+		config.report_enabled(false);
+		config.commit();
+		App::config_report();
+		shell.println(F("Reporting disabled"));
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(threshold)},
+			flash_string_vector{F_(count_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+		if (!arguments.empty()) {
+			unsigned long value = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%lu", &value);
+
+			if (ret < 1) {
+				shell.println(F("Invalid value"));
+				return;
+			}
+
+			config.report_threshold(value);
+			config.commit();
+			App::config_report();
+		}
+		shell.printfln(F("Report threshold = %u"), config.report_threshold());
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(username)},
+			flash_string_vector{F_(name_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+		if (!arguments.empty()) {
+			config.report_username(arguments.front());
+			config.commit();
+			App::config_report();
+		}
+		shell.printfln(F("Report username = %s"), config.report_username().c_str());
+	});
+
+	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(report), F_(url)},
+			flash_string_vector{F_(url_optional)},
+			[=] (Shell &shell, const std::vector<std::string> &arguments) {
+		Config config;
+		if (!arguments.empty()) {
+			config.report_url(arguments.front());
+			config.commit();
+			App::config_report();
+		}
+		shell.printfln(F("Report URL = %s"), config.report_url().c_str());
 	});
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(restart)},

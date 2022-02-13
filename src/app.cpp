@@ -35,6 +35,8 @@
 #include "scd30/config.h"
 #include "scd30/console.h"
 #include "scd30/network.h"
+#include "scd30/report.h"
+#include "scd30/sensor.h"
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "scd30";
 static const char __pstr__enabled[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "enabled";
@@ -45,11 +47,12 @@ namespace scd30 {
 uuid::log::Logger App::logger_{FPSTR(__pstr__logger_name), uuid::log::Facility::KERN};
 scd30::Network App::network_;
 uuid::syslog::SyslogService App::syslog_;
-uuid::telnet::TelnetService App::telnet_([] (Stream &stream, const IPAddress &addr, uint16_t port) -> std::shared_ptr<uuid::console::Shell> {
+uuid::telnet::TelnetService App::telnet_{[] (Stream &stream, const IPAddress &addr, uint16_t port) -> std::shared_ptr<uuid::console::Shell> {
 	return std::make_shared<scd30::SCD30StreamConsole>(stream, addr, port);
-});
+}};
 std::shared_ptr<SCD30Shell> App::shell_;
-scd30::Sensor App::sensor_(App::serial_modbus_, App::SENSOR_PIN);
+scd30::Report App::report_{};
+scd30::Sensor App::sensor_{App::serial_modbus_, App::SENSOR_PIN, report_};
 bool App::local_console_;
 bool App::ota_running_ = false;
 
@@ -78,6 +81,7 @@ void App::start() {
 	network_.start();
 	config_syslog();
 	config_ota();
+	config_report();
 	telnet_.default_write_timeout(1000);
 	telnet_.start();
 	if (local_console_) {
@@ -159,6 +163,10 @@ void App::config_sensor(std::initializer_list<Operation> operations) {
 
 void App::calibrate_sensor(unsigned long ppm) {
 	sensor_.calibrate(ppm);
+}
+
+void App::config_report() {
+	report_.config();
 }
 
 } // namespace scd30

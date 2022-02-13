@@ -77,6 +77,24 @@ public:
 	unsigned long take_measurement_interval() const;
 	void take_measurement_interval(unsigned long take_measurement_interval);
 
+	bool report_enabled() const;
+	void report_enabled(bool report_enabled);
+
+	unsigned long report_threshold() const;
+	void report_threshold(unsigned long report_threshold);
+
+	std::string report_url() const;
+	void report_url(const std::string &report_url);
+
+	std::string report_username() const;
+	void report_username(const std::string &report_username);
+
+	std::string report_password() const;
+	void report_password(const std::string &report_password);
+
+	std::string report_sensor_name() const;
+	void report_sensor_name(const std::string &report_sensor_name);
+
 	void commit();
 
 private:
@@ -103,6 +121,12 @@ private:
 	static unsigned long sensor_measurement_interval_;
 	static unsigned long sensor_ambient_pressure_;
 	static unsigned long take_measurement_interval_;
+	static bool report_enabled_;
+	static unsigned long report_threshold_;
+	static std::string report_url_;
+	static std::string report_username_;
+	static std::string report_password_;
+	static std::string report_sensor_name_;
 
 	bool read_config(const std::string &filename, bool load = true);
 	void read_config(const ArduinoJson::JsonDocument &doc);

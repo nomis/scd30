@@ -30,6 +30,7 @@
 
 #include "scd30/console.h"
 #include "scd30/network.h"
+#include "scd30/report.h"
 #include "scd30/sensor.h"
 
 namespace scd30 {
@@ -57,6 +58,7 @@ public:
 	static void config_ota();
 	static void config_sensor(std::initializer_list<Operation> operations = {});
 	static void calibrate_sensor(unsigned long ppm);
+	static void config_report();
 
 	static const Sensor& sensor() { return sensor_; }
 
@@ -70,6 +72,7 @@ private:
 	static uuid::syslog::SyslogService syslog_;
 	static uuid::telnet::TelnetService telnet_;
 	static std::shared_ptr<scd30::SCD30Shell> shell_;
+	static scd30::Report report_;
 	static scd30::Sensor sensor_;
 	static bool local_console_;
 	static bool ota_running_;

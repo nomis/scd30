@@ -35,7 +35,8 @@
 #include <uuid/common.h>
 #include <uuid/log.h>
 
-#include <scd30/config.h>
+#include "scd30/config.h"
+#include "scd30/report.h"
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "sensor";
 
@@ -54,7 +55,8 @@ static inline float convert_f(const uint16_t *data) {
 	return temp.f;
 }
 
-Sensor::Sensor(::HardwareSerial &device, int ready_pin) : client_(device), ready_pin_(ready_pin) {
+Sensor::Sensor(::HardwareSerial &device, int ready_pin, Report &report)
+		: client_(device), ready_pin_(ready_pin), report_(report) {
 	pinMode(ready_pin_, INPUT);
 
 	config_operations_.set(Operation::CONFIG_AUTOMATIC_CALIBRATION);
@@ -305,6 +307,8 @@ retry:
 				} else {
 					co2_ppm_ = NAN;
 				}
+
+				report_.add(now, temperature_c_, relative_humidity_pc_, co2_ppm_);
 
 				last_reading_s_ = now;
 				measurement_status_ = Measurement::IDLE;
