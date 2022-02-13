@@ -339,10 +339,8 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	auto sensor_temperature_offset = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Config config;
 		unsigned long value = config.sensor_temperature_offset();
-		unsigned long major = value / 100;
-		unsigned long minor = value % 100;
 
-		shell.printfln(F("Temperature offset: %lu.%02lu°C"), major, minor);
+		shell.printfln(F("Temperature offset: %lu.%02lu°C"), value / 100, value % 100);
 	};
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(set), F_(wifi), F_(ssid)}, flash_string_vector{F_(name_mandatory)},
@@ -584,22 +582,16 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		Config config;
 
 		if (!arguments.empty()) {
-			unsigned int major = 0;
-			unsigned int minor = 0;
-			int ret = std::sscanf(arguments[0].c_str(), "%u.%u", &major, &minor);
+			float fvalue = 0;
+			int ret = std::sscanf(arguments[0].c_str(), "%f", &fvalue);
+			long lvalue = std::lroundf(fvalue * 100);
 
-			if (ret < 2) {
-				minor = 0;
-			}
-
-			unsigned long value = major * 100 + minor;
-
-			if (ret < 1 || minor > 100 || major > UINT16_MAX / 100 || value > UINT16_MAX) {
+			if (ret < 1 || !std::isnormal(fvalue) || lvalue < 0 || lvalue > UINT16_MAX) {
 				shell.println(F("Invalid value"));
 				return;
 			}
 
-			config.sensor_temperature_offset(value);
+			config.sensor_temperature_offset(lvalue);
 			config.commit();
 			App::config_sensor({Operation::CONFIG_TEMPERATURE_OFFSET});
 		}
