@@ -409,7 +409,7 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 
 	auto sensor_altitude_compensation = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Config config;
-		unsigned long value = config.sensor_ambient_pressure();
+		unsigned long value = config.sensor_altitude_compensation();
 
 		shell.printfln(F("Altitude compensation: %lum"), value);
 	};
