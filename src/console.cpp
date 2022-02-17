@@ -693,7 +693,7 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 			int ret = std::sscanf(arguments[0].c_str(), "%f", &fvalue);
 			long lvalue = std::lroundf(fvalue * 100);
 
-			if (ret < 1 || !std::isnormal(fvalue) || lvalue < 0 || lvalue > UINT16_MAX) {
+			if (ret < 1 || !std::isfinite(fvalue) || lvalue < 0 || lvalue > UINT16_MAX) {
 				shell.println(F("Invalid value"));
 				return;
 			}

@@ -64,19 +64,19 @@ struct __attribute__((packed)) Reading {
 	Reading(uint32_t timestamp_, float temperature_c_,
 			float relative_humidity_pc_, float co2_ppm_)
 			: timestamp(timestamp_) {
-		if (std::isnormal(temperature_c_)) {
+		if (std::isfinite(temperature_c_)) {
 			temperature_c = std::max(TEMP_MIN, std::min(TEMP_MAX, std::lroundf(temperature_c_ * TEMP_DIV)));
 		} else {
 			temperature_c = TEMP_NAN;
 		}
 
-		if (std::isnormal(relative_humidity_pc_)) {
+		if (std::isfinite(relative_humidity_pc_)) {
 			relative_humidity_pc = std::max(RHUM_MIN, std::min(RHUM_MAX, std::lroundf(relative_humidity_pc_ * RHUM_DIV)));
 		} else {
 			relative_humidity_pc = RHUM_NAN;
 		}
 
-		if (std::isnormal(co2_ppm_)) {
+		if (std::isfinite(co2_ppm_)) {
 			co2_ppm = std::max(CO2_MIN, std::min(CO2_MAX, std::lroundf(co2_ppm_ * CO2_DIV)));
 		} else {
 			co2_ppm = CO2_NAN;
