@@ -148,7 +148,7 @@ retry:
 			auto write_response = std::static_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
 
 			if (write_response->data().size() < 1 || write_response->data()[0] != 0x0001) {
-				logger_.warning(F("Failed to restart sensor"));
+				logger_.emerg(F("Failed to restart sensor"));
 				reset();
 				return;
 			} else if (!reset_complete_) {
@@ -259,7 +259,7 @@ retry:
 			auto response = std::static_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
 
 			if (response->data().size() < 1) {
-				logger_.err(F("Failed to set calibration value"));
+				logger_.crit(F("Failed to set calibration value"));
 				reset();
 				return;
 			} else {
@@ -278,7 +278,7 @@ retry:
 				response_ = client_.read_holding_registers(DEVICE_ADDRESS, MEASUREMENT_DATA_ADDRESS, 6);
 			} else if (measurement_status_ == Measurement::WAITING) {
 				if (::millis() - measurement_start_ms_ >= MEASUREMENT_TIMEOUT_MS) {
-					logger_.err(F("Timeout waiting for measurement to be ready"));
+					logger_.alert(F("Timeout waiting for measurement to be ready"));
 					reset();
 					return;
 				}
@@ -290,7 +290,7 @@ retry:
 			auto response = std::static_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
 
 			if (response->data().size() < 6) {
-				logger_.err(F("Failed to read measurement data"));
+				logger_.alert(F("Failed to read measurement data"));
 				reset();
 				return;
 			} else {
@@ -335,7 +335,7 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 
 		if (write_response) {
 			if (write_response->data().size() < 1) {
-				logger_.err(F("Failed to write %S configuration"), name);
+				logger_.crit(F("Failed to write %S configuration"), name);
 				reset();
 				return;
 			} else {
@@ -347,7 +347,7 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 			}
 		} else if (read_response) {
 			if (read_response->data().size() < 1) {
-				logger_.err(F("Failed to read %S configuration"), name);
+				logger_.crit(F("Failed to read %S configuration"), name);
 				reset();
 				return;
 			} else {

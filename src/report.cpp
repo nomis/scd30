@@ -125,7 +125,7 @@ void Report::add(uint32_t timestamp, float temperature_c, float relative_humidit
 
 	while (readings_.size() >= MAXIMUM_STORE_READINGS) {
 		if (!overflow_) {
-			logger_.warning(F("Reading storage overflow, discarding old readings"));
+			logger_.alert(F("Reading storage overflow, discarding old readings"));
 			overflow_ = true;
 		}
 
