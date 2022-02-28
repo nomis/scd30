@@ -37,15 +37,26 @@ namespace scd30 {
 
 class App {
 private:
+	static constexpr unsigned long SERIAL_MODBUS_BAUD_RATE = 19200;
+
 #if defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ESP8266_WEMOS_D1MINI)
 	static constexpr unsigned long SERIAL_CONSOLE_BAUD_RATE = 115200;
 	static constexpr auto& serial_console_ = Serial;
 
-	static constexpr unsigned long SERIAL_MODBUS_BAUD_RATE = 19200;
 	static constexpr auto& serial_modbus_ = Serial;
 
 	static constexpr int SENSOR_PIN = 12; /* D6 */
 	static constexpr int CONSOLE_PIN = 14; /* D5 */
+#elif defined(ARDUINO_ESP32_WEMOS_S2MINI) || defined(ESP32_WEMOS_S2MINI)
+	static constexpr unsigned long SERIAL_CONSOLE_BAUD_RATE = 115200;
+	static constexpr auto& serial_console_ = Serial;
+
+	static constexpr auto& serial_modbus_ = Serial1;
+
+	/* RX = 18 */
+	/* TX = 17 */
+	static constexpr int SENSOR_PIN = 12;
+	static constexpr int CONSOLE_PIN = -1;
 #else
 # error "Unknown board"
 #endif
@@ -66,6 +77,7 @@ private:
 	App() = delete;
 
 	static void shell_prompt();
+	static bool sensor_enabled() { return CONSOLE_PIN < 0 || !local_console_; }
 
 	static uuid::log::Logger logger_;
 	static scd30::Network network_;

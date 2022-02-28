@@ -20,15 +20,21 @@
 
 #include <Arduino.h>
 
-#ifdef ARDUINO_ARCH_ESP8266
+#if defined(ARDUINO_ARCH_ESP8266)
 # include <ESP8266WiFi.h>
-#else
+# if LWIP_IPV6
+#  include <lwip/netif.h>
+#  include <lwip/ip6_addr.h>
+#  include <lwip/dhcp6.h>
+# endif
+#elif defined(ARDUINO_ARCH_ESP32)
 # include <WiFi.h>
-#endif
-#if LWIP_IPV6
-# include <lwip/netif.h>
-# include <lwip/ip6_addr.h>
-# include <lwip/dhcp6.h>
+# include <esp_wifi.h>
+# ifdef MANUAL_NTP
+#  include <lwip/apps/sntp.h>
+# endif
+#else
+# error "Unknown arch"
 #endif
 
 #include <functional>
@@ -44,23 +50,45 @@ uuid::log::Logger Network::logger_{FPSTR(__pstr__logger_name), uuid::log::Facili
 void Network::start() {
 	WiFi.persistent(false);
 
-	sta_mode_connected_ = WiFi.onStationModeConnected(std::bind(&Network::sta_mode_connected, this, std::placeholders::_1));
-	sta_mode_disconnected_ = WiFi.onStationModeDisconnected(std::bind(&Network::sta_mode_disconnected, this, std::placeholders::_1));
-	sta_mode_got_ip_ = WiFi.onStationModeGotIP(std::bind(&Network::sta_mode_got_ip, this, std::placeholders::_1));
-	sta_mode_dhcp_timeout_ = WiFi.onStationModeDHCPTimeout(std::bind(&Network::sta_mode_dhcp_timeout, this));
+#if defined(ARDUINO_ARCH_ESP8266)
+	WiFi.onStationModeConnected(std::bind(&Network::sta_mode_connected, this, std::placeholders::_1));
+	WiFi.onStationModeDisconnected(std::bind(&Network::sta_mode_disconnected, this, std::placeholders::_1));
+	WiFi.onStationModeGotIP(std::bind(&Network::sta_mode_got_ip, this, std::placeholders::_1));
+	WiFi.onStationModeDHCPTimeout(std::bind(&Network::sta_mode_dhcp_timeout, this));
+#elif defined(ARDUINO_ARCH_ESP32)
+	WiFi.setSleep(false);
+
+	WiFi.onEvent(std::bind(&Network::sta_mode_connected, this,
+		std::placeholders::_1, std::placeholders::_2),
+		ARDUINO_EVENT_WIFI_STA_CONNECTED);
+	WiFi.onEvent(std::bind(&Network::sta_mode_disconnected, this,
+		std::placeholders::_1, std::placeholders::_2),
+		ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+	WiFi.onEvent(std::bind(&Network::sta_mode_got_ip, this,
+		std::placeholders::_1, std::placeholders::_2),
+		ARDUINO_EVENT_WIFI_STA_GOT_IP);
+
+# ifdef MANUAL_NTP
+	configure_ntp();
+# endif
+#else
+# error "Unknown arch"
+#endif
 
 	connect();
 }
 
+#if defined(ARDUINO_ARCH_ESP8266)
 void Network::sta_mode_connected(const WiFiEventStationModeConnected &event) {
 	logger_.info(F("Connected to %s (%02X:%02X:%02X:%02X:%02X:%02X) on channel %u"),
 			event.ssid.c_str(),
 			event.bssid[0], event.bssid[1], event.bssid[2], event.bssid[3], event.bssid[4], event.bssid[5],
 			event.channel);
-#if LWIP_IPV6
+
+# if LWIP_IPV6
 	// Disable this otherwise it makes a query for every single RA
 	dhcp6_disable(netif_default);
-#endif
+# endif
 }
 
 void Network::sta_mode_disconnected(const WiFiEventStationModeDisconnected &event) {
@@ -80,6 +108,60 @@ void Network::sta_mode_got_ip(const WiFiEventStationModeGotIP &event) {
 void Network::sta_mode_dhcp_timeout() {
 	logger_.warning(F("DHCPv4 timeout"));
 }
+#elif defined(ARDUINO_ARCH_ESP32)
+void Network::sta_mode_connected(arduino_event_id_t event, arduino_event_info_t info) {
+	const auto &conn = info.wifi_sta_connected;
+
+	logger_.info(F("Connected to %*s (%02X:%02X:%02X:%02X:%02X:%02X) on channel %u"),
+		conn.ssid_len, conn.ssid,
+		conn.bssid[0], conn.bssid[1], conn.bssid[2], conn.bssid[3], conn.bssid[4], conn.bssid[5],
+		conn.channel);
+}
+
+void Network::sta_mode_disconnected(arduino_event_id_t event, arduino_event_info_t info) {
+	const auto &conn = info.wifi_sta_disconnected;
+
+	logger_.info(F("Disconnected from %s (%02X:%02X:%02X:%02X:%02X:%02X) reason=%d"),
+		conn.ssid_len, conn.ssid,
+		conn.bssid[0], conn.bssid[1], conn.bssid[2], conn.bssid[3], conn.bssid[4], conn.bssid[5],
+		conn.reason);
+}
+
+void Network::sta_mode_got_ip(arduino_event_id_t event, arduino_event_info_t info) {
+	const auto &got_ip = info.got_ip;
+
+	logger_.info(F("Obtained IPv4 address %s/%s and gateway %s"),
+		uuid::printable_to_string(IPAddress(got_ip.ip_info.ip.addr)).c_str(),
+		uuid::printable_to_string(IPAddress(got_ip.ip_info.netmask.addr)).c_str(),
+		uuid::printable_to_string(IPAddress(got_ip.ip_info.gw.addr)).c_str());
+
+	configure_ntp();
+}
+#else
+# error "Unknown arch"
+#endif
+
+#ifdef MANUAL_NTP
+void Network::configure_ntp() {
+	if (WiFi.status() == WL_CONNECTED) {
+		ip_addr_t addr = IPADDR4_INIT(WiFi.gatewayIP());
+
+		logger_.info(F("Configure NTP server: %s"), uuid::printable_to_string(WiFi.gatewayIP()).c_str());
+
+		if (sntp_enabled()) {
+			sntp_stop();
+		}
+		sntp_setoperatingmode(SNTP_OPMODE_POLL);
+		sntp_setserver(0, &addr);
+		sntp_init();
+	} else {
+		if (sntp_enabled()) {
+			logger_.info(F("Stop SNTP client"));
+			sntp_stop();
+		}
+	}
+}
+#endif
 
 void Network::connect() {
 	Config config;
@@ -158,8 +240,13 @@ void Network::print_status(uuid::console::Shell &shell) {
 			shell.printfln(F("RSSI: %d dBm"), WiFi.RSSI());
 			shell.println();
 
-			shell.printfln(F("MAC address: %s"), WiFi.macAddress().c_str());
+#if defined(ARDUINO_ARCH_ESP8266)
 			shell.printfln(F("Hostname: %s"), WiFi.hostname().c_str());
+#elif defined(ARDUINO_ARCH_ESP32)
+			shell.printfln(F("Hostname: %s"), WiFi.getHostname());
+#else
+# error "Unknown arch"
+#endif
 			shell.println();
 
 			shell.printfln(F("IPv4 address: %s/%s"),
@@ -172,7 +259,8 @@ void Network::print_status(uuid::console::Shell &shell) {
 			shell.printfln(F("IPv4 nameserver: %s"),
 					uuid::printable_to_string(WiFi.dnsIP()).c_str());
 
-#if LWIP_IPV6
+#ifdef ARDUINO_ARCH_ESP8266
+# if LWIP_IPV6
 			shell.println();
 			for (size_t i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
 				if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, i))) {
@@ -180,6 +268,7 @@ void Network::print_status(uuid::console::Shell &shell) {
 							uuid::printable_to_string(IPAddress(netif_ip_addr6(netif_default, i))).c_str());
 				}
 			}
+# endif
 #endif
 		}
 		break;
@@ -201,6 +290,9 @@ void Network::print_status(uuid::console::Shell &shell) {
 		shell.printfln(F("WiFi: unknown"));
 		break;
 	}
+
+	shell.println();
+	shell.printfln(F("MAC address: %s"), WiFi.macAddress().c_str());
 }
 
 } // namespace scd30

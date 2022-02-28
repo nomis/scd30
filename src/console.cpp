@@ -19,14 +19,16 @@
 #include "scd30/console.h"
 
 #include <Arduino.h>
-#include <FS.h>
-#include <LittleFS.h>
 #ifdef ARDUINO_ARCH_ESP8266
 # include <ESP8266WiFi.h>
 #else
 # include <WiFi.h>
 #endif
 #include <time.h>
+
+#ifdef ARDUINO_ARCH_ESP32
+# include <rom/rtc.h>
+#endif
 
 #include <cmath>
 #include <cstdio>
@@ -40,6 +42,7 @@
 
 #include "scd30/app.h"
 #include "scd30/config.h"
+#include "scd30/fs.h"
 #include "scd30/network.h"
 
 using ::uuid::flash_string_vector;
@@ -195,19 +198,19 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN | CommandFlags::LOCAL, flash_string_vector{F_(mkfs)},
 			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
-		if (LittleFS.begin()) {
-			shell.logger().warning("Formatting LittleFS filesystem");
-			if (LittleFS.format()) {
-				auto msg = F("Formatted LittleFS filesystem");
+		if (FS.begin()) {
+			shell.logger().warning("Formatting filesystem");
+			if (FS.format()) {
+				auto msg = F("Formatted filesystem");
 				shell.logger().warning(msg);
 				shell.println(msg);
 			} else {
-				auto msg = F("Error formatting LittleFS filesystem");
+				auto msg = F("Error formatting filesystem");
 				shell.logger().emerg(msg);
 				shell.println(msg);
 			}
 		} else {
-			auto msg = F("Unable to mount LittleFS filesystem");
+			auto msg = F("Unable to mount filesystem");
 			shell.logger().alert(msg);
 			shell.println(msg);
 		}
@@ -483,10 +486,24 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 	});
 
 	auto show_memory = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+#if defined(ARDUINO_ARCH_ESP8266)
 		shell.printfln(F("Free heap:                %lu bytes"), (unsigned long)ESP.getFreeHeap());
 		shell.printfln(F("Maximum free block size:  %lu bytes"), (unsigned long)ESP.getMaxFreeBlockSize());
 		shell.printfln(F("Heap fragmentation:       %u%%"), ESP.getHeapFragmentation());
 		shell.printfln(F("Free continuations stack: %lu bytes"), (unsigned long)ESP.getFreeContStack());
+#elif defined(ARDUINO_ARCH_ESP32)
+		shell.printfln(F("Heap size:                %lu bytes"), (unsigned long)ESP.getHeapSize());
+		shell.printfln(F("Free heap:                %lu bytes"), (unsigned long)ESP.getFreeHeap());
+		shell.printfln(F("Minimum free heap:        %lu bytes"), (unsigned long)ESP.getMinFreeHeap());
+		shell.printfln(F("Maximum heap block size:  %lu bytes"), (unsigned long)ESP.getMaxAllocHeap());
+		shell.println();
+		shell.printfln(F("PSRAM size:                %lu bytes"), (unsigned long)ESP.getPsramSize());
+		shell.printfln(F("Free PSRAM:                %lu bytes"), (unsigned long)ESP.getFreePsram());
+		shell.printfln(F("Minimum free PSRAM:        %lu bytes"), (unsigned long)ESP.getMinFreePsram());
+		shell.printfln(F("Maximum PSRAM block size:  %lu bytes"), (unsigned long)ESP.getMaxAllocPsram());
+#else
+# error "Unknown arch"
+#endif
 	};
 	auto show_network = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		Network::print_status(shell);
@@ -503,6 +520,7 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		shell.printfln(F("CO₂:               %.2f ppm"), App::sensor().co2_ppm());
 	};
 	auto show_system = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
+#if defined(ARDUINO_ARCH_ESP8266)
 		shell.printfln(F("Chip ID:       0x%08x"), ESP.getChipId());
 		shell.printfln(F("SDK version:   %s"), ESP.getSdkVersion());
 		shell.printfln(F("Core version:  %s"), ESP.getCoreVersion().c_str());
@@ -511,15 +529,36 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		shell.printfln(F("Boot mode:     %u"), ESP.getBootMode());
 		shell.printfln(F("CPU frequency: %u MHz"), ESP.getCpuFreqMHz());
 		shell.printfln(F("Flash chip:    0x%08X (%u bytes)"), ESP.getFlashChipId(), ESP.getFlashChipRealSize());
-		shell.printfln(F("Sketch size:   %u bytes (%u bytes free)"), ESP.getSketchSize(), ESP.getFreeSketchSpace());
 		shell.printfln(F("Reset reason:  %s"), ESP.getResetReason().c_str());
 		shell.printfln(F("Reset info:    %s"), ESP.getResetInfo().c_str());
+#elif defined(ARDUINO_ARCH_ESP32)
+		shell.printfln(F("Chip model:    %s"), ESP.getChipModel());
+		shell.printfln(F("Chip revision: 0x%02x"), ESP.getChipRevision());
+		shell.printfln(F("Chip cores:    %u"), ESP.getChipCores());
+		shell.printfln(F("SDK version:   %s"), ESP.getSdkVersion());
+		shell.printfln(F("CPU frequency: %u MHz"), ESP.getCpuFreqMHz());
+		shell.printfln(F("Flash chip:    %u Hz (%u bytes)"), ESP.getFlashChipSpeed(), ESP.getFlashChipSize());
+		shell.printfln(F("PSRAM size:    %u bytes (%u bytes free)"), ESP.getPsramSize());
+		shell.printfln(F("PSRAM size:    %u bytes"), ESP.getPsramSize());
+		shell.printfln(F("Reset reason:  %u/%u"), rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+		shell.printfln(F("Wake cause:    %u"), rtc_get_wakeup_cause());
+#else
+# error "Unknown arch"
+#endif
+		shell.printfln(F("Sketch size:   %u bytes (%u bytes free)"), ESP.getSketchSize(), ESP.getFreeSketchSpace());
 
+#if defined(ARDUINO_ARCH_ESP8266)
 		FSInfo info;
-		if (LittleFS.info(info)) {
-			shell.printfln(F("LittleFS size: %zu bytes (block size %zu bytes, page size %zu bytes)"), info.totalBytes, info.blockSize, info.pageSize);
-			shell.printfln(F("LittleFS used: %zu bytes (%.2f%%)"), info.usedBytes, (float)info.usedBytes / (float)info.totalBytes);
+		if (FS.info(info)) {
+			shell.printfln(F("FS size:       %zu bytes (block size %zu bytes, page size %zu bytes)"), info.totalBytes, info.blockSize, info.pageSize);
+			shell.printfln(F("FS used:       %zu bytes (%.2f%%)"), info.usedBytes, (float)info.usedBytes / (float)info.totalBytes);
 		}
+#elif defined(ARDUINO_ARCH_ESP32)
+		shell.printfln(F("FS size:       %zu bytes"), FS.totalBytes());
+		shell.printfln(F("FS used:       %zu bytes (%.2f%%)"), FS.usedBytes(), (float)FS.usedBytes() / (float)FS.totalBytes());
+#else
+# error "Unknown arch"
+#endif
 	};
 	auto show_uptime = [] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
 		shell.print(F("Uptime: "));
@@ -735,10 +774,10 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 
 	commands->add_command(ShellContext::MAIN, CommandFlags::ADMIN, flash_string_vector{F_(sync)},
 			[] (Shell &shell, const std::vector<std::string> &arguments __attribute__((unused))) {
-		auto msg = F("Unable to mount LittleFS filesystem");
-		if (LittleFS.begin()) {
-			LittleFS.end();
-			if (!LittleFS.begin()) {
+		auto msg = F("Unable to mount filesystem");
+		if (FS.begin()) {
+			FS.end();
+			if (!FS.begin()) {
 				shell.logger().alert(msg);
 			}
 		} else {
@@ -857,9 +896,16 @@ std::string SCD30Shell::hostname_text() {
 	std::string hostname = config.hostname();
 
 	if (hostname.empty()) {
-		hostname.resize(16, '\0');
+#ifdef ARDUINO_ARCH_ESP8266
+		hostname.resize(20, '\0');
 
 		::snprintf_P(&hostname[0], hostname.capacity() + 1, PSTR("esp-%08x"), ESP.getChipId());
+#else
+		hostname = uuid::read_flash_string(F("esp-"));
+		String mac = WiFi.macAddress();
+		mac.replace(F(":"), F(""));
+		hostname.append(mac.c_str());
+#endif
 	}
 
 	return hostname;

@@ -19,8 +19,6 @@
 #include "scd30/config.h"
 
 #include <Arduino.h>
-#include <FS.h>
-#include <LittleFS.h>
 #include <IPAddress.h>
 
 #include <cmath>
@@ -32,6 +30,7 @@
 #include <ArduinoJson.hpp>
 
 #include "scd30/app.h"
+#include "scd30/fs.h"
 
 #define MAKE_PSTR(string_name, string_literal) static const char __pstr__##string_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = string_literal;
 
@@ -140,12 +139,12 @@ bool Config::loaded_ = false;
 
 Config::Config(bool mount) {
 	if (!unavailable_ && !mounted_ && mount) {
-		logger_.info(F("Mounting LittleFS filesystem"));
-		if (LittleFS.begin()) {
-			logger_.info(F("Mounted LittleFS filesystem"));
+		logger_.info(F("Mounting filesystem"));
+		if (FS.begin()) {
+			logger_.info(F("Mounted filesystem"));
 			mounted_ = true;
 		} else {
-			logger_.alert(F("Unable to mount LittleFS filesystem"));
+			logger_.alert(F("Unable to mount filesystem"));
 			unavailable_ = true;
 		}
 	}
@@ -180,12 +179,12 @@ void Config::syslog_host(const std::string &syslog_host) {
 
 void Config::commit() {
 	if (!unavailable_ && !mounted_) {
-		logger_.info(F("Mounting LittleFS filesystem"));
-		if (LittleFS.begin()) {
-			logger_.info(F("Mounted LittleFS filesystem"));
+		logger_.info(F("Mounting filesystem"));
+		if (FS.begin()) {
+			logger_.info(F("Mounted filesystem"));
 			mounted_ = true;
 		} else {
-			logger_.alert(F("Unable to mount LittleFS filesystem"));
+			logger_.alert(F("Unable to mount filesystem"));
 			unavailable_ = true;
 		}
 	}
@@ -204,16 +203,16 @@ void Config::commit() {
 
 void Config::umount() {
 	if (mounted_) {
-		logger_.info(F("Unmounting LittleFS filesystem"));
-		LittleFS.end();
-		logger_.info(F("Unmounted LittleFS filesystem"));
+		logger_.info(F("Unmounting filesystem"));
+		FS.end();
+		logger_.info(F("Unmounted filesystem"));
 		mounted_ = false;
 	}
 }
 
 bool Config::read_config(const std::string &filename, bool load) {
 	logger_.info(F("Reading config file %s"), filename.c_str());
-	File file = LittleFS.open(filename.c_str(), "r");
+	File file = FS.open(filename.c_str(), "r");
 	if (file) {
 		ArduinoJson::DynamicJsonDocument doc(BUFFER_SIZE);
 
@@ -236,7 +235,7 @@ bool Config::read_config(const std::string &filename, bool load) {
 
 bool Config::write_config(const std::string &filename) {
 	logger_.info(F("Writing config file %s"), filename.c_str());
-	File file = LittleFS.open(filename.c_str(), "w");
+	File file = FS.open(filename.c_str(), "w");
 	if (file) {
 		ArduinoJson::DynamicJsonDocument doc(BUFFER_SIZE);
 

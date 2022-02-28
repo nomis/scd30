@@ -21,6 +21,10 @@
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 
+#ifdef ARDUINO_ARCH_ESP32
+# include <rom/rtc.h>
+#endif
+
 #include <initializer_list>
 #include <memory>
 #include <vector>
@@ -57,23 +61,44 @@ bool App::local_console_;
 bool App::ota_running_ = false;
 
 void App::start() {
-	pinMode(CONSOLE_PIN, INPUT_PULLUP);
-	delay(1);
-	local_console_ = digitalRead(CONSOLE_PIN) == LOW;
-	pinMode(CONSOLE_PIN, INPUT);
-
 	syslog_.start();
 	syslog_.maximum_log_messages(100);
 
+	if (CONSOLE_PIN >= 0) {
+		pinMode(CONSOLE_PIN, INPUT_PULLUP);
+		delay(1);
+		local_console_ = digitalRead(CONSOLE_PIN) == LOW;
+		pinMode(CONSOLE_PIN, INPUT);
+	} else {
+		local_console_ = true;
+	}
+
 	logger_.info(F("System startup (scd30 " SCD30_REVISION ")"));
+#if defined(ARDUINO_ARCH_ESP8266)
 	logger_.info(F("Reset: %s"), ESP.getResetInfo().c_str());
-	logger_.info(F("Local console %S"), local_console_ ? F("enabled") : F("disabled"));
+#elif defined(ARDUINO_ARCH_ESP32)
+	logger_.info(F("Reset: %u/%u"), rtc_get_reset_reason(0), rtc_get_reset_reason(1));
+	logger_.info(F("Wake: %u"), rtc_get_wakeup_cause());
+#else
+# error "unknown arch"
+#endif
+
+	Config config;
+	if (config.wifi_ssid().empty()) {
+		local_console_ = true;
+	}
+
+	if (CONSOLE_PIN >= 0) {
+		logger_.info(F("Local console %S"), local_console_ ? F("enabled") : F("disabled"));
+	}
 
 	if (local_console_) {
 		serial_console_.begin(SERIAL_CONSOLE_BAUD_RATE);
 		serial_console_.println();
 		serial_console_.println(F("scd30 " SCD30_REVISION));
-	} else {
+	}
+
+	if (sensor_enabled()) {
 		serial_modbus_.begin(SERIAL_MODBUS_BAUD_RATE, SERIAL_8N1);
 		serial_modbus_.setDebugOutput(0);
 	}
@@ -84,9 +109,12 @@ void App::start() {
 	config_report();
 	telnet_.default_write_timeout(1000);
 	telnet_.start();
+
 	if (local_console_) {
 		shell_prompt();
-	} else {
+	}
+
+	if (sensor_enabled()) {
 		sensor_.start();
 	}
 }
@@ -96,6 +124,7 @@ void App::loop() {
 	syslog_.loop();
 	telnet_.loop();
 	uuid::console::Shell::loop_all();
+
 	if (ota_running_) {
 		ArduinoOTA.handle();
 	}
@@ -113,7 +142,9 @@ void App::loop() {
 				shell_->start();
 			}
 		}
-	} else {
+	}
+
+	if (sensor_enabled()) {
 		sensor_.loop();
 		report_.loop();
 	}
@@ -141,11 +172,24 @@ void App::config_syslog() {
 void App::config_ota() {
 	Config config;
 
+#if defined(ARDUINO_ARCH_ESP8266)
+	if (ota_running_) {
+		ESP.restart();
+		return;
+	}
+#elif defined(ARDUINO_ARCH_ESP32)
+#else
+# error "unknown arch"
+#endif
+
 	if (config.ota_enabled() && !config.ota_password().empty()) {
 		if (ota_running_) {
-			// FIXME ArduinoOTA.end();
-			ESP.restart();
-			return;
+#if defined(ARDUINO_ARCH_ESP8266)
+#elif defined(ARDUINO_ARCH_ESP32)
+		ArduinoOTA.end();
+#else
+# error "unknown arch"
+#endif
 		}
 		ArduinoOTA.setPassword(config.ota_password().c_str());
 		ArduinoOTA.onStart([] () {
@@ -179,12 +223,24 @@ void App::config_ota() {
 				}
 			}
 		});
+#if defined(ARDUINO_ARCH_ESP8266)
 		ArduinoOTA.begin(false);
+#elif defined(ARDUINO_ARCH_ESP32)
+		ArduinoOTA.setMdnsEnabled(false);
+		ArduinoOTA.begin();
+#else
+# error "Unknown arch"
+#endif
+		logger_.info("OTA enabled");
 		ota_running_ = true;
 	} else if (ota_running_) {
-		// FIXME ArduinoOTA.end();
-		ESP.restart();
-		return;
+#if defined(ARDUINO_ARCH_ESP8266)
+#elif defined(ARDUINO_ARCH_ESP32)
+		ArduinoOTA.end();
+#else
+# error "Unknown arch"
+#endif
+		logger_.info("OTA disabled");
 		ota_running_ = false;
 	}
 }

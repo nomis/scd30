@@ -15,5 +15,5 @@ uploadfs: data/certs.ar
 	platformio run -t uploadfs
 
 data/certs.ar: certs/isrg-root-x1.der certs/isrg-root-x2.der
-	mkdir data
+	mkdir -p data
 	ar q $@ $^

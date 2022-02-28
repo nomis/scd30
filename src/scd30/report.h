@@ -20,9 +20,13 @@
 #define SCD30_REPORT_H_
 
 #include <Arduino.h>
-#include <ESP8266HTTPClient.h>
+#ifdef ARDUINO_ARCH_ESP8266
+# include <ESP8266HTTPClient.h>
+# include <WiFiClientSecureBearSSL.h>
+#else
+# include <HTTPClient.h>
+#endif
 #include <WiFiClient.h>
-#include <WiFiClientSecureBearSSL.h>
 
 #include <cmath>
 #include <deque>
@@ -36,29 +40,29 @@ struct __attribute__((packed)) Reading {
 	static constexpr size_t TEMP_BITS = 14;
 	static constexpr int TEMP_DIV = 100;
 	static constexpr int TEMP_MUL = 100 / TEMP_DIV;
-	static_assert(TEMP_DIV * TEMP_MUL == 100);
+	static_assert(TEMP_DIV * TEMP_MUL == 100, "Temperature division and multiplier are not factors of 100");
 	static constexpr long TEMP_MIN = -(1 << (TEMP_BITS - 1)) + 1;
-	static_assert(TEMP_MIN == -8191); /* -81.91°C */
+	static_assert(TEMP_MIN == -8191, "Unexpected value for minimum temperature"); /* -81.91°C */
 	static constexpr long TEMP_MAX = (1 << (TEMP_BITS - 1)) - 1;
-	static_assert(TEMP_MAX == 8191); /* 81.91°C */
+	static_assert(TEMP_MAX == 8191, "Unexpected value for maximum temperature"); /* 81.91°C */
 	static constexpr long TEMP_NAN = TEMP_MIN - 1;
 
 	static constexpr size_t RHUM_BITS = 14;
 	static constexpr int RHUM_DIV = 100;
 	static constexpr int RHUM_MUL = 100 / RHUM_DIV;
-	static_assert(RHUM_DIV * RHUM_MUL == 100);
+	static_assert(RHUM_DIV * RHUM_MUL == 100, "Relative humidity division and multiplier are not factors of 100");
 	static constexpr long RHUM_MIN = 0; /* 0% */
 	static constexpr long RHUM_MAX = (1 << RHUM_BITS) - 2;
-	static_assert(RHUM_MAX == 16382); /* 163.82% */
+	static_assert(RHUM_MAX == 16382, "Unexpected value for maximum relative humidity"); /* 163.82% */
 	static constexpr long RHUM_NAN = RHUM_MAX + 1;
 
 	static constexpr size_t CO2_BITS = 20;
 	static constexpr int CO2_DIV = 20;
 	static constexpr int CO2_MUL = 100 / CO2_DIV;
-	static_assert(CO2_DIV * CO2_MUL == 100);
+	static_assert(CO2_DIV * CO2_MUL == 100, "CO₂ division and multiplier are not factors of 100");
 	static constexpr long CO2_MIN = 0; /* 0 ppm */
 	static constexpr long CO2_MAX = (1 << CO2_BITS) - 2;
-	static_assert(CO2_MAX == 1048574); /* 41942.96 ppm */
+	static_assert(CO2_MAX == 1048574, "Unexpected value for maximum CO₂"); /* 41942.96 ppm */
 	static constexpr long CO2_NAN = CO2_MAX + 1;
 
 	Reading(uint32_t timestamp_, float temperature_c_,
@@ -88,7 +92,7 @@ struct __attribute__((packed)) Reading {
 	unsigned int relative_humidity_pc : RHUM_BITS;
 	unsigned int co2_ppm : CO2_BITS;
 };
-static_assert(sizeof(Reading) == 10);
+static_assert(sizeof(Reading) == 10, "Unexpected size of reading struct");
 
 enum class UploadState : uint8_t {
 	IDLE,
@@ -122,11 +126,15 @@ private:
 	std::string password_;
 	std::string sensor_name_;
 
+	WiFiClient tcp_client_;
+#ifdef ARDUINO_ARCH_ESP8266
 	BearSSL::CertStore tls_certs_;
 	BearSSL::WiFiClientSecure tls_client_;
-	WiFiClient tcp_client_;
-	WiFiClient *conn_client_ = nullptr;
 	bool tls_loaded_ = false;
+	WiFiClient *conn_client_ = nullptr;
+#else
+	WiFiClient *conn_client_ = &tcp_client_;
+#endif
 	HTTPClient http_client_;
 	UploadState state_ = UploadState::IDLE;
 	uint32_t upload_ts_first_;

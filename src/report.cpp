@@ -19,10 +19,12 @@
 #include <scd30/report.h>
 
 #include <Arduino.h>
-#include <FS.h>
-#include <LittleFS.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecureBearSSL.h>
+#ifdef ARDUINO_ARCH_ESP8266
+# include <ESP8266HTTPClient.h>
+# include <WiFiClientSecureBearSSL.h>
+#else
+# include <HTTPClient.h>
+#endif
 
 #include <cmath>
 #include <string>
@@ -30,8 +32,8 @@
 
 #include <uuid/log.h>
 
-#include "scd30/app.h" // TODO remove
 #include "scd30/config.h"
+#include "scd30/fs.h"
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "report";
 
@@ -78,13 +80,14 @@ void Report::config() {
 	}
 
 	if (enabled_) {
+#ifdef ARDUINO_ARCH_ESP8266
 		if (url_.rfind(uuid::read_flash_string(F("https://")), 0) == 0) {
 			if (!tls_loaded_) {
 				tls_client_.setBufferSizes(512, 512);
 				tls_client_.setSSLVersion(BR_TLS12);
 
 				logger_.info(F("Loading CA certificates"));
-				int certs = tls_certs_.initCertStore(LittleFS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+				int certs = tls_certs_.initCertStore(FS, PSTR("/certs.idx"), PSTR("/certs.ar"));
 				tls_client_.setCertStore(&tls_certs_);
 				logger_.info(F("Loaded CA certificates: %u"), certs);
 
@@ -95,6 +98,7 @@ void Report::config() {
 		} else {
 			conn_client_ = &tcp_client_;
 		}
+#endif
 	}
 
 	if (state_ > UploadState::CONNECT && state_ < UploadState::CLEANUP) {
