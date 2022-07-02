@@ -677,6 +677,7 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		const esp_partition_t *boot = esp_ota_get_boot_partition();
 		const esp_partition_t *part = current;
 		for (int i = 0; i < esp_ota_get_app_partition_count(); i++, part = esp_ota_get_next_update_partition(part)) {
+			esp_app_desc_t desc;
 			esp_ota_img_states_t state;
 
 			if (esp_ota_get_state_partition(part, &state)) {
@@ -714,6 +715,17 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 				break;
 			}
 			shell.println();
+
+			if (!esp_ota_get_partition_description(part, &desc)) {
+				shell.printfln(F("    Name:      %s"), desc.project_name);
+				shell.printfln(F("    Version:   %s"), desc.version);
+				shell.printfln(F("    Timestamp: %s %s"), desc.date, desc.time);
+				shell.print(F("    Hash:      "));
+				for (int i = 0; i < sizeof(desc.app_elf_sha256); i++) {
+					shell.printf(F("%02x"), desc.app_elf_sha256[i]);
+				}
+				shell.println();
+			}
 		}
 #endif
 

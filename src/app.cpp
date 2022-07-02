@@ -90,13 +90,19 @@ void App::start() {
 
 #if !defined(ARDUINO_ARCH_ESP8266)
 	const esp_partition_t *part = esp_ota_get_running_partition();
-	esp_ota_img_states_t state;
+	const esp_app_desc_t* desc = esp_ota_get_app_description();
+	esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
 
-	if (part == nullptr || esp_ota_get_state_partition(part, &state)) {
-		state = ESP_OTA_IMG_UNDEFINED;
+	if (part != nullptr) {
+		if (esp_ota_get_state_partition(part, &state)) {
+			state = ESP_OTA_IMG_UNDEFINED;
+		}
 	}
 
 	logger_.info(F("OTA partition: %s %d"), part ? part->label : nullptr, state);
+	if (desc != nullptr) {
+		logger_.info(F("App build: %s %s"), desc->date, desc->time);
+	}
 #endif
 
 	Config config;
