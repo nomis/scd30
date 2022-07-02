@@ -53,11 +53,13 @@ public:
 	unsigned long syslog_mark_interval() const;
 	void syslog_mark_interval(unsigned long syslog_mark_interval);
 
+#if defined(ARDUINO_ARCH_ESP8266)
 	bool ota_enabled() const;
 	void ota_enabled(bool ota_enabled);
 
 	std::string ota_password() const;
 	void ota_password(const std::string &ota_password);
+#endif
 
 	bool sensor_automatic_calibration() const;
 	void sensor_automatic_calibration(bool sensor_automatic_calibration);
@@ -114,8 +116,10 @@ private:
 	static std::string syslog_host_;
 	static uuid::log::Level syslog_level_;
 	static unsigned long syslog_mark_interval_;
+#if defined(ARDUINO_ARCH_ESP8266)
 	static bool ota_enabled_;
 	static std::string ota_password_;
+#endif
 	static bool sensor_automatic_calibration_;
 	static unsigned long sensor_temperature_offset_;
 	static unsigned long sensor_altitude_compensation_;

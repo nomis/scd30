@@ -35,6 +35,13 @@
 #define MAKE_PSTR(string_name, string_literal) static const char __pstr__##string_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = string_literal;
 
 namespace scd30 {
+#ifdef ARDUINO_ARCH_ESP8266
+# define SCD30_CONFIG_DATA_OTA \
+		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
+		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "")
+#else
+# define SCD30_CONFIG_DATA_OTA
+#endif
 
 #define SCD30_CONFIG_DATA \
 		SCD30_CONFIG_SIMPLE(std::string, "", admin_password, "", "") \
@@ -44,8 +51,7 @@ namespace scd30 {
 		SCD30_CONFIG_CUSTOM(std::string, "", syslog_host, "", "") \
 		SCD30_CONFIG_ENUM(uuid::log::Level, "", syslog_level, "", uuid::log::Level::OFF) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", syslog_mark_interval, "", 0) \
-		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
-		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "") \
+		SCD30_CONFIG_DATA_OTA \
 		SCD30_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
 		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \

@@ -66,7 +66,9 @@ public:
 	static void loop();
 
 	static void config_syslog();
+#ifdef ARDUINO_ARCH_ESP8266
 	static void config_ota();
+#endif
 	static void config_sensor(std::initializer_list<Operation> operations = {});
 	static void calibrate_sensor(unsigned long ppm);
 	static void config_report();
@@ -87,7 +89,9 @@ private:
 	static scd30::Report report_;
 	static scd30::Sensor sensor_;
 	static bool local_console_;
+#ifdef ARDUINO_ARCH_ESP8266
 	static bool ota_running_;
+#endif
 };
 
 } // namespace scd30

@@ -19,9 +19,12 @@
 #include "scd30/app.h"
 
 #include <Arduino.h>
-#include <ArduinoOTA.h>
+#ifdef ARDUINO_ARCH_ESP8266
+# include <ArduinoOTA.h>
+#endif
 
 #ifdef ARDUINO_ARCH_ESP32
+# include <esp_ota_ops.h>
 # include <rom/rtc.h>
 #endif
 
@@ -58,7 +61,9 @@ std::shared_ptr<SCD30Shell> App::shell_;
 scd30::Report App::report_{};
 scd30::Sensor App::sensor_{App::serial_modbus_, App::SENSOR_PIN, report_};
 bool App::local_console_;
+#if defined(ARDUINO_ARCH_ESP8266)
 bool App::ota_running_ = false;
+#endif
 
 void App::start() {
 	syslog_.start();
@@ -83,6 +88,17 @@ void App::start() {
 # error "unknown arch"
 #endif
 
+#if !defined(ARDUINO_ARCH_ESP8266)
+	const esp_partition_t *part = esp_ota_get_running_partition();
+	esp_ota_img_states_t state;
+
+	if (part == nullptr || esp_ota_get_state_partition(part, &state)) {
+		state = ESP_OTA_IMG_UNDEFINED;
+	}
+
+	logger_.info(F("OTA partition: %s %d"), part ? part->label : nullptr, state);
+#endif
+
 	Config config;
 	if (config.wifi_ssid().empty()) {
 		local_console_ = true;
@@ -105,7 +121,9 @@ void App::start() {
 
 	network_.start();
 	config_syslog();
+#if defined(ARDUINO_ARCH_ESP8266)
 	config_ota();
+#endif
 	config_report();
 	telnet_.default_write_timeout(1000);
 	telnet_.start();
@@ -125,9 +143,11 @@ void App::loop() {
 	telnet_.loop();
 	uuid::console::Shell::loop_all();
 
+#if defined(ARDUINO_ARCH_ESP8266)
 	if (ota_running_) {
 		ArduinoOTA.handle();
 	}
+#endif
 
 	if (local_console_) {
 		if (shell_) {
@@ -169,28 +189,16 @@ void App::config_syslog() {
 	syslog_.destination(addr);
 }
 
+#if defined(ARDUINO_ARCH_ESP8266)
 void App::config_ota() {
 	Config config;
 
-#if defined(ARDUINO_ARCH_ESP8266)
 	if (ota_running_) {
 		ESP.restart();
 		return;
 	}
-#elif defined(ARDUINO_ARCH_ESP32)
-#else
-# error "unknown arch"
-#endif
 
 	if (config.ota_enabled() && !config.ota_password().empty()) {
-		if (ota_running_) {
-#if defined(ARDUINO_ARCH_ESP8266)
-#elif defined(ARDUINO_ARCH_ESP32)
-		ArduinoOTA.end();
-#else
-# error "unknown arch"
-#endif
-		}
 		ArduinoOTA.setPassword(config.ota_password().c_str());
 		ArduinoOTA.onStart([] () {
 			logger_.notice("OTA start");
@@ -223,27 +231,15 @@ void App::config_ota() {
 				}
 			}
 		});
-#if defined(ARDUINO_ARCH_ESP8266)
 		ArduinoOTA.begin(false);
-#elif defined(ARDUINO_ARCH_ESP32)
-		ArduinoOTA.setMdnsEnabled(false);
-		ArduinoOTA.begin();
-#else
-# error "Unknown arch"
-#endif
 		logger_.info("OTA enabled");
 		ota_running_ = true;
 	} else if (ota_running_) {
-#if defined(ARDUINO_ARCH_ESP8266)
-#elif defined(ARDUINO_ARCH_ESP32)
-		ArduinoOTA.end();
-#else
-# error "Unknown arch"
-#endif
 		logger_.info("OTA disabled");
 		ota_running_ = false;
 	}
 }
+#endif
 
 void App::config_sensor(std::initializer_list<Operation> operations) {
 	sensor_.config(operations);
