@@ -47,7 +47,7 @@ private:
 
 	static constexpr int SENSOR_PIN = 12; /* D6 */
 	static constexpr int CONSOLE_PIN = 14; /* D5 */
-#elif defined(ARDUINO_ESP32_WEMOS_S2MINI) || defined(ESP32_WEMOS_S2MINI)
+#elif defined(ARDUINO_LOLIN_S2_MINI)
 	static constexpr unsigned long SERIAL_CONSOLE_BAUD_RATE = 115200;
 	static constexpr auto& serial_console_ = Serial;
 

@@ -135,7 +135,9 @@ void Network::sta_mode_got_ip(arduino_event_id_t event, arduino_event_info_t inf
 		uuid::printable_to_string(IPAddress(got_ip.ip_info.netmask.addr)).c_str(),
 		uuid::printable_to_string(IPAddress(got_ip.ip_info.gw.addr)).c_str());
 
+# ifdef MANUAL_NTP
 	configure_ntp();
+# endif
 }
 #else
 # error "Unknown arch"

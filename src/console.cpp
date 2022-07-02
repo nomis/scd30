@@ -538,14 +538,13 @@ static void setup_commands(std::shared_ptr<Commands> &commands) {
 		shell.printfln(F("SDK version:   %s"), ESP.getSdkVersion());
 		shell.printfln(F("CPU frequency: %u MHz"), ESP.getCpuFreqMHz());
 		shell.printfln(F("Flash chip:    %u Hz (%u bytes)"), ESP.getFlashChipSpeed(), ESP.getFlashChipSize());
-		shell.printfln(F("PSRAM size:    %u bytes (%u bytes free)"), ESP.getPsramSize());
 		shell.printfln(F("PSRAM size:    %u bytes"), ESP.getPsramSize());
 		shell.printfln(F("Reset reason:  %u/%u"), rtc_get_reset_reason(0), rtc_get_reset_reason(1));
 		shell.printfln(F("Wake cause:    %u"), rtc_get_wakeup_cause());
 #else
 # error "Unknown arch"
 #endif
-		shell.printfln(F("Sketch size:   %u bytes (%u bytes free)"), ESP.getSketchSize(), ESP.getFreeSketchSpace());
+		shell.printfln(F("Sketch size:   %u bytes (%u bytes maximum)"), ESP.getSketchSize(), ESP.getFreeSketchSpace());
 
 #if defined(ARDUINO_ARCH_ESP8266)
 		FSInfo info;
