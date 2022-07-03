@@ -28,3 +28,7 @@ void loop() {
 	scd30::App::loop();
 	::yield();
 }
+
+bool verifyRollbackLater() {
+    return true;
+}
