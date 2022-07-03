@@ -27,7 +27,7 @@
 # custom_app_name = Hello World
 # custom_app_version = !git describe --dirty=+ --always
 
-from datetime import datetime
+from datetime import datetime, timezone
 import argparse
 import hashlib
 import os
@@ -35,7 +35,7 @@ import struct
 import subprocess
 import sys
 
-def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsecond=0), name=None, version=None):
+def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.now(tz=timezone.utc), name=None, version=None):
 	with open(fw_elf, "rb") as f:
 		hash_elf = hashlib.sha256(f.read()).digest()
 
@@ -94,7 +94,7 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 
 		assert checksum_act == checksum_exp, f"checksum mismatch: {checksum_act:02X} {checksum_exp:02X}"
 
-		if hash_appended:
+		if hash_appended == 1:
 			hash_image_exp = data[-hash_len:].hex()
 			hash_image_act = hashlib.sha256(data[:-hash_len]).hexdigest()
 
@@ -109,8 +109,8 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 		app_desc[4] = _utf8_truncate(version, 31)
 	if name is not None:
 		app_desc[5] = _utf8_truncate(name, 31)
-	app_desc[6] = _utf8_truncate(_time_format(timestamp), 31)
-	app_desc[7] = _utf8_truncate(_date_format(timestamp), 31)
+	app_desc[6] = _utf8_truncate(_time_format(timestamp), 15)
+	app_desc[7] = _utf8_truncate(_date_format(timestamp), 15)
 	app_desc[9] = hash_elf[0:32]
 	new_app_desc = struct.pack(app_desc_fmt, *app_desc)
 
@@ -122,7 +122,7 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 
 	new_data = data[0:segment_offs[0] + sizeof_esp_image_segment_header_t] + new_app_desc + data[segment_offs[0] + sizeof_esp_image_segment_header_t + sizeof_esp_app_desc_t:-hash_len - 1]
 	new_data += bytes([new_checksum])
-	if hash_appended:
+	if hash_appended == 1:
 		new_data += hashlib.sha256(new_data).digest()
 
 	with open(f"{fw_bin}~", "wb") as f:
@@ -134,7 +134,7 @@ def after_fw_bin(source, target, env):
 	fw_bin = str(target[0])
 
 	desc = {
-		"timestamp": datetime.fromtimestamp(int(env["UNIX_TIME"])),
+		"timestamp": datetime.fromtimestamp(float(env["UNIX_TIME"]), tz=timezone.utc),
 		"name": env.GetProjectOption("custom_app_name", None),
 		"version": env.GetProjectOption("custom_app_version", None),
 	}
@@ -163,7 +163,11 @@ def _date_format(dt):
 	return str(dt.date())
 
 def _time_format(dt):
-	return str(dt.time())
+	dt = dt.replace(microsecond=0)
+	if dt.tzinfo:
+		return dt.strftime("%H:%M:%S %z")
+	else:
+		return dt.strftime("%H:%M:%S")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Update ESP32 app descriptor")
