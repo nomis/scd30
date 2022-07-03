@@ -49,7 +49,6 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 	image_segment_header_fmt = "<2L"
 	app_desc_fmt = "<2L 2L 32s 32s 16s 16s 32s 32s 20L"
 
-	HASH_LEN = 32
 	segments = 0
 	data = b""
 	with open(fw_bin, "rb") as f:
@@ -61,6 +60,12 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 
 		segments = image_header[1]
 		hash_appended = image_header[19]
+		if hash_appended == 0:
+			hash_len = 0
+		elif hash_appended == 1:
+			hash_len = 32
+		else:
+			raise ValueError(f"Unsupported hash type {hash_appended}")
 		checksum_act = 0xEF
 
 		segment_offs = []
@@ -78,32 +83,34 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 			assert len(segment) == segment_lens[i]
 			data += segment
 
-		remaining_len = (16 - (len(data) % 16)) + HASH_LEN
+		remaining_len = (16 - (len(data) % 16)) + hash_len
 		remaining = f.read(remaining_len)
 		assert len(remaining) == remaining_len
 		data += remaining
 		assert len(f.read()) == 0, "unexpected/unsupported trailing data in file"
 
-		checksum_exp = data[-HASH_LEN - 1]
+		checksum_exp = data[-hash_len - 1]
 		checksum_act = checksum_act
 
-		hash_image_exp = data[-HASH_LEN:].hex()
-		hash_image_act = hashlib.sha256(data[:-HASH_LEN]).hexdigest()
-
 		assert checksum_act == checksum_exp, f"checksum mismatch: {checksum_act:02X} {checksum_exp:02X}"
-		assert hash_image_act == hash_image_exp, f"hash mismatch: {hash_image_act} {hash_image_exp}"
+
+		if hash_appended:
+			hash_image_exp = data[-hash_len:].hex()
+			hash_image_act = hashlib.sha256(data[:-hash_len]).hexdigest()
+
+			assert hash_image_act == hash_image_exp, f"hash mismatch: {hash_image_act} {hash_image_exp}"
 
 	assert(segments > 0), "Image has no segments"
 
 	orig_app_desc = data[segment_offs[0] + sizeof_esp_image_segment_header_t:segment_offs[0] + sizeof_esp_image_segment_header_t + sizeof_esp_app_desc_t]
 	app_desc = list(struct.unpack(app_desc_fmt, orig_app_desc))
 	app_desc[0] == 0xABCD5432, f"ESP_APP_DESC_MAGIC_WORD {app_desc[0]:04X}"
-	if version:
-		app_desc[4] = version.encode("utf-8")[0:31]
-	if name:
-		app_desc[5] = name.encode("utf-8")[0:31]
-	app_desc[6] = str(timestamp.time()).encode("utf-8")[0:31]
-	app_desc[7] = str(timestamp.date()).encode("utf-8")[0:31]
+	if version is not None:
+		app_desc[4] = _utf8_truncate(version, 31)
+	if name is not None:
+		app_desc[5] = _utf8_truncate(name, 31)
+	app_desc[6] = _utf8_truncate(_time_format(timestamp), 31)
+	app_desc[7] = _utf8_truncate(_date_format(timestamp), 31)
 	app_desc[9] = hash_elf[0:32]
 	new_app_desc = struct.pack(app_desc_fmt, *app_desc)
 
@@ -113,9 +120,10 @@ def rewrite_app_desc(fw_elf, fw_bin, timestamp=datetime.today().replace(microsec
 	for b in new_app_desc:
 		new_checksum ^= b
 
-	new_data = data[0:segment_offs[0] + sizeof_esp_image_segment_header_t] + new_app_desc + data[segment_offs[0] + sizeof_esp_image_segment_header_t + sizeof_esp_app_desc_t:-HASH_LEN - 1]
+	new_data = data[0:segment_offs[0] + sizeof_esp_image_segment_header_t] + new_app_desc + data[segment_offs[0] + sizeof_esp_image_segment_header_t + sizeof_esp_app_desc_t:-hash_len - 1]
 	new_data += bytes([new_checksum])
-	new_data += hashlib.sha256(new_data).digest()
+	if hash_appended:
+		new_data += hashlib.sha256(new_data).digest()
 
 	with open(f"{fw_bin}~", "wb") as f:
 		f.write(new_data)
@@ -142,6 +150,14 @@ def after_fw_bin(source, target, env):
 
 	print(f"Update ESP32 app descriptor in {fw_bin}: {str_desc}")
 	rewrite_app_desc(fw_elf, fw_bin, **desc)
+
+def _utf8_truncate(text, max_len):
+	text = text[0:max_len]
+	data = text.encode("utf-8")
+	while len(data) > max_len:
+		text = text[:-1]
+		data = text.encode("utf-8")
+	return data
 
 def _date_format(dt):
 	return str(dt.date())
