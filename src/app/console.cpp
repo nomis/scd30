@@ -107,7 +107,7 @@ MAKE_PSTR_WORD(sync)
 MAKE_PSTR_WORD(syslog)
 MAKE_PSTR_WORD(system)
 MAKE_PSTR_WORD(umount)
-#if !defined(ARDUINO_ARCH_ESP8266)
+#if !defined(ARDUINO_ARCH_ESP8266) && defined(OTA_URL)
 MAKE_PSTR_WORD(update)
 #endif
 MAKE_PSTR_WORD(uptime)
