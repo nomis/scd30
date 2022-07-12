@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,8 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCD30_NETWORK_H_
-#define SCD30_NETWORK_H_
+#pragma once
 
 #include <Arduino.h>
 #ifdef ARDUINO_ARCH_ESP8266
@@ -29,17 +28,16 @@
 #include <uuid/console.h>
 #include <uuid/log.h>
 
-namespace scd30 {
+namespace app {
 
 class Network {
 public:
-	static void connect();
-	static void reconnect();
-	static void disconnect();
-	static void scan(uuid::console::Shell &shell);
-	static void print_status(uuid::console::Shell &shell);
-
 	void start();
+	void connect();
+	void reconnect();
+	void disconnect();
+	void scan(uuid::console::Shell &shell);
+	void print_status(uuid::console::Shell &shell);
 
 private:
 	static uuid::log::Logger logger_;
@@ -64,6 +62,4 @@ private:
 #endif
 };
 
-} // namespace scd30
-
-#endif
+} // namespace app

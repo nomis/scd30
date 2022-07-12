@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,8 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCD30_CONFIG_H_
-#define SCD30_CONFIG_H_
+#pragma once
 
 #include <ArduinoJson.hpp>
 
@@ -25,7 +24,7 @@
 
 #include <uuid/log.h>
 
-namespace scd30 {
+namespace app {
 
 class Config {
 public:
@@ -61,42 +60,6 @@ public:
 	void ota_password(const std::string &ota_password);
 #endif
 
-	bool sensor_automatic_calibration() const;
-	void sensor_automatic_calibration(bool sensor_automatic_calibration);
-
-	unsigned long sensor_temperature_offset() const;
-	void sensor_temperature_offset(unsigned long sensor_temperature_offset);
-
-	unsigned long sensor_altitude_compensation() const;
-	void sensor_altitude_compensation(unsigned long sensor_altitude_compensation);
-
-	unsigned long sensor_measurement_interval() const;
-	void sensor_measurement_interval(unsigned long sensor_measurement_interval);
-
-	unsigned long sensor_ambient_pressure() const;
-	void sensor_ambient_pressure(unsigned long sensor_ambient_pressure);
-
-	unsigned long take_measurement_interval() const;
-	void take_measurement_interval(unsigned long take_measurement_interval);
-
-	bool report_enabled() const;
-	void report_enabled(bool report_enabled);
-
-	unsigned long report_threshold() const;
-	void report_threshold(unsigned long report_threshold);
-
-	std::string report_url() const;
-	void report_url(const std::string &report_url);
-
-	std::string report_username() const;
-	void report_username(const std::string &report_username);
-
-	std::string report_password() const;
-	void report_password(const std::string &report_password);
-
-	std::string report_sensor_name() const;
-	void report_sensor_name(const std::string &report_sensor_name);
-
 	void commit();
 	void umount();
 
@@ -120,25 +83,13 @@ private:
 	static bool ota_enabled_;
 	static std::string ota_password_;
 #endif
-	static bool sensor_automatic_calibration_;
-	static unsigned long sensor_temperature_offset_;
-	static unsigned long sensor_altitude_compensation_;
-	static unsigned long sensor_measurement_interval_;
-	static unsigned long sensor_ambient_pressure_;
-	static unsigned long take_measurement_interval_;
-	static bool report_enabled_;
-	static unsigned long report_threshold_;
-	static std::string report_url_;
-	static std::string report_username_;
-	static std::string report_password_;
-	static std::string report_sensor_name_;
 
 	bool read_config(const std::string &filename, bool load = true);
 	void read_config(const ArduinoJson::JsonDocument &doc);
 	bool write_config(const std::string &filename);
 	void write_config(ArduinoJson::JsonDocument &doc);
+
+#include "../config_class.h"
 };
 
-} // namespace scd30
-
-#endif
+} // namespace app

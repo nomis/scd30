@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "scd30/config.h"
+#include "config.h"
 
 #include <Arduino.h>
 #include <IPAddress.h>
@@ -29,81 +29,70 @@
 #include <uuid/log.h>
 #include <ArduinoJson.hpp>
 
-#include "scd30/app.h"
-#include "scd30/fs.h"
+#include "app.h"
+#include "fs.h"
 
 #define MAKE_PSTR(string_name, string_literal) static const char __pstr__##string_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = string_literal;
 
-namespace scd30 {
+namespace app {
 #ifdef ARDUINO_ARCH_ESP8266
-# define SCD30_CONFIG_DATA_OTA \
-		SCD30_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
-		SCD30_CONFIG_SIMPLE(std::string, "", ota_password, "", "")
+# define MCU_APP_INTERNAL_CONFIG_DATA_OTA \
+		MCU_APP_CONFIG_PRIMITIVE(bool, "", ota_enabled, "", true) \
+		MCU_APP_CONFIG_SIMPLE(std::string, "", ota_password, "", "")
 #else
-# define SCD30_CONFIG_DATA_OTA
+# define MCU_APP_INTERNAL_CONFIG_DATA_OTA
 #endif
 
-#define SCD30_CONFIG_DATA \
-		SCD30_CONFIG_SIMPLE(std::string, "", admin_password, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", hostname, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", wifi_ssid, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", wifi_password, "", "") \
-		SCD30_CONFIG_CUSTOM(std::string, "", syslog_host, "", "") \
-		SCD30_CONFIG_ENUM(uuid::log::Level, "", syslog_level, "", uuid::log::Level::OFF) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", syslog_mark_interval, "", 0) \
-		SCD30_CONFIG_DATA_OTA \
-		SCD30_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", sensor_ambient_pressure, "", 0) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5) \
-		SCD30_CONFIG_PRIMITIVE(bool, "", report_enabled, "", true) \
-		SCD30_CONFIG_PRIMITIVE(unsigned long, "", report_threshold, "", 12) \
-		SCD30_CONFIG_SIMPLE(std::string, "", report_url, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", report_username, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", report_password, "", "") \
-		SCD30_CONFIG_SIMPLE(std::string, "", report_sensor_name, "", "")
+#define MCU_APP_INTERNAL_CONFIG_DATA \
+		MCU_APP_CONFIG_SIMPLE(std::string, "", admin_password, "", "") \
+		MCU_APP_CONFIG_SIMPLE(std::string, "", hostname, "", "") \
+		MCU_APP_CONFIG_SIMPLE(std::string, "", wifi_ssid, "", "") \
+		MCU_APP_CONFIG_SIMPLE(std::string, "", wifi_password, "", "") \
+		MCU_APP_CONFIG_CUSTOM(std::string, "", syslog_host, "", "") \
+		MCU_APP_CONFIG_ENUM(uuid::log::Level, "", syslog_level, "", uuid::log::Level::OFF) \
+		MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", syslog_mark_interval, "", 0) \
+		MCU_APP_INTERNAL_CONFIG_DATA_OTA \
+		MCU_APP_CONFIG_DATA
 
 /* Create member data and flash strings */
-#define SCD30_CONFIG_SIMPLE SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_CUSTOM SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_PRIMITIVE SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_ENUM SCD30_CONFIG_GENERIC
-#define SCD30_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_SIMPLE MCU_APP_CONFIG_GENERIC
+#define MCU_APP_CONFIG_CUSTOM MCU_APP_CONFIG_GENERIC
+#define MCU_APP_CONFIG_PRIMITIVE MCU_APP_CONFIG_GENERIC
+#define MCU_APP_CONFIG_ENUM MCU_APP_CONFIG_GENERIC
+#define MCU_APP_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name##_; \
 		MAKE_PSTR(__name, __key_prefix #__name __key_suffix)
-SCD30_CONFIG_DATA
-#undef SCD30_CONFIG_GENERIC
-#undef SCD30_CONFIG_ENUM
+MCU_APP_INTERNAL_CONFIG_DATA
+#undef MCU_APP_CONFIG_GENERIC
+#undef MCU_APP_CONFIG_ENUM
 
 void Config::read_config(const ArduinoJson::JsonDocument &doc) {
-#define SCD30_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__name(doc[FPSTR(__pstr__##__name)] | __read_default, ##__VA_ARGS__);
-#define SCD30_CONFIG_ENUM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_ENUM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__name(static_cast<__type>(doc[FPSTR(__pstr__##__name)] | static_cast<int>(__read_default)), ##__VA_ARGS__);
-	SCD30_CONFIG_DATA
-#undef SCD30_CONFIG_GENERIC
-#undef SCD30_CONFIG_ENUM
+	MCU_APP_INTERNAL_CONFIG_DATA
+#undef MCU_APP_CONFIG_GENERIC
+#undef MCU_APP_CONFIG_ENUM
 }
 
 void Config::write_config(ArduinoJson::JsonDocument &doc) {
-#define SCD30_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_GENERIC(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		doc[FPSTR(__pstr__##__name)] = __name();
-#define SCD30_CONFIG_ENUM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_ENUM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		doc[FPSTR(__pstr__##__name)] = static_cast<int>(__name());
-	SCD30_CONFIG_DATA
-#undef SCD30_CONFIG_GENERIC
-#undef SCD30_CONFIG_PRIMITIVE
-#undef SCD30_CONFIG_ENUM
+	MCU_APP_INTERNAL_CONFIG_DATA
+#undef MCU_APP_CONFIG_GENERIC
+#undef MCU_APP_CONFIG_PRIMITIVE
+#undef MCU_APP_CONFIG_ENUM
 }
 
-#undef SCD30_CONFIG_SIMPLE
-#undef SCD30_CONFIG_PRIMITIVE
-#undef SCD30_CONFIG_CUSTOM
+#undef MCU_APP_CONFIG_SIMPLE
+#undef MCU_APP_CONFIG_PRIMITIVE
+#undef MCU_APP_CONFIG_CUSTOM
 
 /* Create getters/setters for simple config items */
-#define SCD30_CONFIG_SIMPLE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_SIMPLE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name() const { \
 			return __name##_; \
 		} \
@@ -111,8 +100,8 @@ void Config::write_config(ArduinoJson::JsonDocument &doc) {
 			__name##_ = __name; \
 		}
 /* Create getters/setters for primitive config items */
-#define SCD30_CONFIG_ENUM SCD30_CONFIG_PRIMITIVE
-#define SCD30_CONFIG_PRIMITIVE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_ENUM MCU_APP_CONFIG_PRIMITIVE
+#define MCU_APP_CONFIG_PRIMITIVE(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name() const { \
 			return __name##_; \
 		} \
@@ -121,17 +110,17 @@ void Config::write_config(ArduinoJson::JsonDocument &doc) {
 		}
 
 /* Create getters for config items with custom setters */
-#define SCD30_CONFIG_CUSTOM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
+#define MCU_APP_CONFIG_CUSTOM(__type, __key_prefix, __name, __key_suffix, __read_default, ...) \
 		__type Config::__name() const { \
 			return __name##_; \
 		}
 
-SCD30_CONFIG_DATA
+MCU_APP_INTERNAL_CONFIG_DATA
 
-#undef SCD30_CONFIG_SIMPLE
-#undef SCD30_CONFIG_PRIMITIVE
-#undef SCD30_CONFIG_CUSTOM
-#undef SCD30_CONFIG_ENUM
+#undef MCU_APP_CONFIG_SIMPLE
+#undef MCU_APP_CONFIG_PRIMITIVE
+#undef MCU_APP_CONFIG_CUSTOM
+#undef MCU_APP_CONFIG_ENUM
 
 static const char __pstr__config_filename[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "/config.msgpack";
 static const char __pstr__config_backup_filename[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "/config.msgpack~";
@@ -261,4 +250,4 @@ bool Config::write_config(const std::string &filename) {
 	}
 }
 
-} // namespace scd30
+} // namespace app

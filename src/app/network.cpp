@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "scd30/network.h"
+#include "network.h"
 
 #include <Arduino.h>
 
@@ -39,11 +39,11 @@
 
 #include <functional>
 
-#include "scd30/config.h"
+#include "config.h"
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "wifi";
 
-namespace scd30 {
+namespace app {
 
 uuid::log::Logger Network::logger_{FPSTR(__pstr__logger_name), uuid::log::Facility::KERN};
 
@@ -297,4 +297,4 @@ void Network::print_status(uuid::console::Shell &shell) {
 	shell.printfln(F("MAC address: %s"), WiFi.macAddress().c_str());
 }
 
-} // namespace scd30
+} // namespace app

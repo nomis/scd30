@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,17 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <Arduino.h>
-
-#include "scd30/app.h"
-
-static scd30::App application;
-
-void setup() {
-	application.start();
-}
-
-void loop() {
-	application.loop();
-	::yield();
+bool verifyRollbackLater() {
+	return true;
 }

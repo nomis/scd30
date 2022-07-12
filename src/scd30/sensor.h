@@ -16,8 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCD30_SENSOR_H_
-#define SCD30_SENSOR_H_
+#pragma once
 
 #include <Arduino.h>
 
@@ -31,7 +30,7 @@
 #include <uuid/log.h>
 #include <uuid/modbus.h>
 
-#include "scd30/report.h"
+#include "report.h"
 
 namespace scd30 {
 
@@ -132,5 +131,3 @@ private:
 };
 
 } // namespace scd30
-
-#endif

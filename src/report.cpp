@@ -32,8 +32,10 @@
 
 #include <uuid/log.h>
 
-#include "scd30/config.h"
-#include "scd30/fs.h"
+#include "app/config.h"
+#include "app/fs.h"
+
+using Config = ::app::Config;
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "report";
 
@@ -87,7 +89,7 @@ void Report::config() {
 				tls_client_.setSSLVersion(BR_TLS12);
 
 				logger_.info(F("Loading CA certificates"));
-				int certs = tls_certs_.initCertStore(FS, PSTR("/certs.idx"), PSTR("/certs.ar"));
+				int certs = tls_certs_.initCertStore(app::FS, PSTR("/certs.idx"), PSTR("/certs.ar"));
 				tls_client_.setCertStore(&tls_certs_);
 				logger_.info(F("Loaded CA certificates: %u"), certs);
 

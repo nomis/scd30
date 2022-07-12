@@ -35,8 +35,10 @@
 #include <uuid/common.h>
 #include <uuid/log.h>
 
-#include "scd30/config.h"
+#include "app/config.h"
 #include "scd30/report.h"
+
+using Config = ::app::Config;
 
 static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "sensor";
 

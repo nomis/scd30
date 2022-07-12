@@ -16,8 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCD30_REPORT_H_
-#define SCD30_REPORT_H_
+#pragma once
 
 #include <Arduino.h>
 #ifdef ARDUINO_ARCH_ESP8266
@@ -142,5 +141,3 @@ private:
 };
 
 } // namespace scd30
-
-#endif

@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,48 +27,58 @@
 #include <uuid/syslog.h>
 #include <uuid/telnet.h>
 
-#include "../app/app.h"
-#include "../app/console.h"
-#include "../app/network.h"
-#include "report.h"
-#include "sensor.h"
+#include "console.h"
+#include "network.h"
 
-namespace scd30 {
+#ifndef APP_CONSOLE_PIN
+# define APP_CONSOLE_PIN -1
+#endif
 
-class App: public app::App {
+namespace app {
+
+class AppShell;
+
+class App {
 private:
-	static constexpr unsigned long SERIAL_MODBUS_BAUD_RATE = 19200;
+	static constexpr unsigned long SERIAL_CONSOLE_BAUD_RATE = 115200;
+	static constexpr auto& serial_console_ = Serial;
+	static constexpr int CONSOLE_PIN = APP_CONSOLE_PIN;
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ESP8266_WEMOS_D1MINI)
-	static constexpr auto& serial_modbus_ = Serial;
-
-	static constexpr int SENSOR_PIN = 12; /* D6 */
 #elif defined(ARDUINO_LOLIN_S2_MINI)
-	static constexpr auto& serial_modbus_ = Serial1;
-
-	/* RX = 18 */
-	/* TX = 17 */
-	static constexpr int SENSOR_PIN = 12;
 #else
 # error "Unknown board"
 #endif
 
 public:
+	~App() = default;
+	virtual void start();
+	virtual void loop();
+
+	void config_syslog();
+#ifdef ARDUINO_ARCH_ESP8266
+	void config_ota();
+#endif
+
+	Network network_;
+
+protected:
+	static uuid::log::Logger logger_;
+
 	App();
-	void start() override;
-	void loop() override;
 
-	void config_sensor(std::initializer_list<Operation> operations = {});
-	void calibrate_sensor(unsigned long ppm);
-	void config_report();
-
-	const Sensor& sensor() { return sensor_; }
+	bool local_console_enabled() { return CONSOLE_PIN >= 0 && local_console_; }
 
 private:
 	void shell_prompt();
 
-	scd30::Report report_;
-	scd30::Sensor sensor_;
+	uuid::syslog::SyslogService syslog_;
+	uuid::telnet::TelnetService telnet_;
+	std::shared_ptr<AppShell> shell_;
+	bool local_console_;
+#ifdef ARDUINO_ARCH_ESP8266
+	bool ota_running_ = false;
+#endif
 };
 
-} // namespace scd30
+} // namespace app

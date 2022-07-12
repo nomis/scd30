@@ -18,16 +18,6 @@
 
 #include "scd30/app.h"
 
-#include <Arduino.h>
-#ifdef ARDUINO_ARCH_ESP8266
-# include <ArduinoOTA.h>
-#endif
-
-#ifdef ARDUINO_ARCH_ESP32
-# include <esp_ota_ops.h>
-# include <rom/rtc.h>
-#endif
-
 #include <initializer_list>
 #include <memory>
 #include <vector>
@@ -39,213 +29,38 @@
 #include <uuid/syslog.h>
 #include <uuid/telnet.h>
 
-#include "scd30/config.h"
-#include "scd30/console.h"
-#include "scd30/network.h"
+#include "app/config.h"
+#include "app/console.h"
+#include "app/network.h"
 #include "scd30/report.h"
 #include "scd30/sensor.h"
 
-static const char __pstr__logger_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "scd30";
-static const char __pstr__enabled[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "enabled";
-static const char __pstr__disabled[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = "disabled";
-
 namespace scd30 {
 
-uuid::log::Logger App::logger_{FPSTR(__pstr__logger_name), uuid::log::Facility::KERN};
-scd30::Network App::network_;
-uuid::syslog::SyslogService App::syslog_;
-uuid::telnet::TelnetService App::telnet_{[] (Stream &stream, const IPAddress &addr, uint16_t port) -> std::shared_ptr<uuid::console::Shell> {
-	return std::make_shared<scd30::SCD30StreamConsole>(stream, addr, port);
-}};
-std::shared_ptr<SCD30Shell> App::shell_;
-scd30::Report App::report_{};
-scd30::Sensor App::sensor_{App::serial_modbus_, App::SENSOR_PIN, report_};
-bool App::local_console_;
-#if defined(ARDUINO_ARCH_ESP8266)
-bool App::ota_running_ = false;
-#endif
+App::App() : sensor_(App::serial_modbus_, App::SENSOR_PIN, report_) {
+
+}
 
 void App::start() {
-	syslog_.start();
-	syslog_.maximum_log_messages(100);
+	app::App::start();
 
-	if (CONSOLE_PIN >= 0) {
-		pinMode(CONSOLE_PIN, INPUT_PULLUP);
-		delay(1);
-		local_console_ = digitalRead(CONSOLE_PIN) == LOW;
-		pinMode(CONSOLE_PIN, INPUT);
-	} else {
-		local_console_ = true;
-	}
-
-	logger_.info(F("System startup (scd30 " SCD30_REVISION ")"));
-#if defined(ARDUINO_ARCH_ESP8266)
-	logger_.info(F("Reset: %s"), ESP.getResetInfo().c_str());
-#elif defined(ARDUINO_ARCH_ESP32)
-	logger_.info(F("Reset: %u/%u"), rtc_get_reset_reason(0), rtc_get_reset_reason(1));
-	logger_.info(F("Wake: %u"), rtc_get_wakeup_cause());
-#else
-# error "unknown arch"
-#endif
-
-#if !defined(ARDUINO_ARCH_ESP8266)
-	const esp_partition_t *part = esp_ota_get_running_partition();
-	const esp_app_desc_t* desc = esp_ota_get_app_description();
-	esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
-
-	if (part != nullptr) {
-		if (esp_ota_get_state_partition(part, &state)) {
-			state = ESP_OTA_IMG_UNDEFINED;
-		}
-	}
-
-	logger_.info(F("OTA partition: %s %d"), part ? part->label : nullptr, state);
-	if (desc != nullptr) {
-		logger_.info(F("App build: %s %s"), desc->date, desc->time);
-	}
-#endif
-
-	Config config;
-	if (config.wifi_ssid().empty()) {
-		local_console_ = true;
-	}
-
-	if (CONSOLE_PIN >= 0) {
-		logger_.info(F("Local console %S"), local_console_ ? F("enabled") : F("disabled"));
-	}
-
-	if (local_console_) {
-		serial_console_.begin(SERIAL_CONSOLE_BAUD_RATE);
-		serial_console_.println();
-		serial_console_.println(F("scd30 " SCD30_REVISION));
-	}
-
-	if (sensor_enabled()) {
+	if (!local_console_enabled()) {
 		serial_modbus_.begin(SERIAL_MODBUS_BAUD_RATE, SERIAL_8N1);
 		serial_modbus_.setDebugOutput(0);
-	}
-
-	network_.start();
-	config_syslog();
-#if defined(ARDUINO_ARCH_ESP8266)
-	config_ota();
-#endif
-	config_report();
-	telnet_.default_write_timeout(1000);
-	telnet_.start();
-
-	if (local_console_) {
-		shell_prompt();
-	}
-
-	if (sensor_enabled()) {
 		sensor_.start();
 	}
+
+	config_report();
 }
 
 void App::loop() {
-	uuid::loop();
-	syslog_.loop();
-	telnet_.loop();
-	uuid::console::Shell::loop_all();
+	app::App::loop();
 
-#if defined(ARDUINO_ARCH_ESP8266)
-	if (ota_running_) {
-		ArduinoOTA.handle();
-	}
-#endif
-
-	if (local_console_) {
-		if (shell_) {
-			if (!shell_->running()) {
-				shell_.reset();
-				shell_prompt();
-			}
-		} else {
-			int c = serial_console_.read();
-			if (c == '\x03' || c == '\x0C') {
-				shell_ = std::make_shared<SCD30StreamConsole>(serial_console_, c == '\x0C');
-				shell_->start();
-			}
-		}
-	}
-
-	if (sensor_enabled()) {
+	if (!local_console_enabled()) {
 		sensor_.loop();
 		report_.loop();
 	}
 }
-
-void App::shell_prompt() {
-	serial_console_.println();
-	serial_console_.println(F("Press ^C to activate this console"));
-}
-
-void App::config_syslog() {
-	Config config;
-	IPAddress addr;
-
-	if (!addr.fromString(config.syslog_host().c_str())) {
-		addr = (uint32_t)0;
-	}
-
-	syslog_.hostname(config.hostname());
-	syslog_.log_level(config.syslog_level());
-	syslog_.mark_interval(config.syslog_mark_interval());
-	syslog_.destination(addr);
-}
-
-#if defined(ARDUINO_ARCH_ESP8266)
-void App::config_ota() {
-	Config config;
-
-	if (ota_running_) {
-		ESP.restart();
-		return;
-	}
-
-	if (config.ota_enabled() && !config.ota_password().empty()) {
-		ArduinoOTA.setPassword(config.ota_password().c_str());
-		ArduinoOTA.onStart([] () {
-			logger_.notice("OTA start");
-
-			Config config;
-			config.umount();
-
-			while (syslog_.current_log_messages()) {
-				syslog_.loop();
-			}
-		});
-		ArduinoOTA.onEnd([] () {
-			logger_.notice("OTA end");
-
-			Config config;
-			config.commit();
-
-			while (syslog_.current_log_messages()) {
-				syslog_.loop();
-			}
-		});
-		ArduinoOTA.onError([] (ota_error_t error) {
-			if (error == OTA_END_ERROR) {
-				logger_.notice("OTA error");
-				Config config;
-				config.commit();
-
-				while (syslog_.current_log_messages()) {
-					syslog_.loop();
-				}
-			}
-		});
-		ArduinoOTA.begin(false);
-		logger_.info("OTA enabled");
-		ota_running_ = true;
-	} else if (ota_running_) {
-		logger_.info("OTA disabled");
-		ota_running_ = false;
-	}
-}
-#endif
 
 void App::config_sensor(std::initializer_list<Operation> operations) {
 	sensor_.config(operations);

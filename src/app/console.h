@@ -1,5 +1,5 @@
 /*
- * scd30 - SCD30 Monitor
+ * mcu-app - Microcontroller application framework
  * Copyright 2022  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,8 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCD30_CONSOLE_H_
-#define SCD30_CONSOLE_H_
+#pragma once
 
 #include <uuid/console.h>
 
@@ -31,11 +30,13 @@
 #include <string>
 #include <vector>
 
+#include "app.h"
+
 #ifdef LOCAL
 # undef LOCAL
 #endif
 
-namespace scd30 {
+namespace app {
 
 enum CommandFlags : unsigned int {
 	USER = 0,
@@ -47,14 +48,18 @@ enum ShellContext : unsigned int {
 	MAIN = 0,
 };
 
-class SCD30Shell: virtual public uuid::console::Shell {
+class App;
+
+class AppShell: virtual public uuid::console::Shell {
 public:
-	~SCD30Shell() override = default;
+	~AppShell() override = default;
 
 	virtual std::string console_name() = 0;
 
+	App &app_;
+
 protected:
-	SCD30Shell();
+	AppShell(App &app);
 
 	static std::shared_ptr<uuid::console::Commands> commands_;
 
@@ -66,11 +71,11 @@ protected:
 	void stopped() override;
 };
 
-class SCD30StreamConsole: public uuid::console::StreamConsole, public SCD30Shell {
+class AppStreamConsole: public uuid::console::StreamConsole, public AppShell {
 public:
-	SCD30StreamConsole(Stream &stream, bool local);
-	SCD30StreamConsole(Stream &stream, const IPAddress &addr, uint16_t port);
-	~SCD30StreamConsole() override;
+	AppStreamConsole(App &app, Stream &stream, bool local);
+	AppStreamConsole(App &app, Stream &stream, const IPAddress &addr, uint16_t port);
+	~AppStreamConsole() override;
 
 	std::string console_name();
 
@@ -83,6 +88,4 @@ private:
 	uint16_t port_;
 };
 
-} // namespace scd30
-
-#endif
+} // namespace app
