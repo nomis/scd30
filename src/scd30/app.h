@@ -65,8 +65,6 @@ public:
 	const Sensor& sensor() { return sensor_; }
 
 private:
-	void shell_prompt();
-
 	scd30::Report report_;
 	scd30::Sensor sensor_;
 };

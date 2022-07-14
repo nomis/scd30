@@ -36,9 +36,9 @@ using ::uuid::console::Shell;
 using LogLevel = ::uuid::log::Level;
 using LogFacility = ::uuid::log::Facility;
 
-using CommandFlags = ::app::CommandFlags;
-using Config = ::app::Config;
-using ShellContext = ::app::ShellContext;
+using ::app::CommandFlags;
+using ::app::Config;
+using ::app::ShellContext;
 
 #define MAKE_PSTR(string_name, string_literal) static const char __pstr__##string_name[] __attribute__((__aligned__(sizeof(int)))) PROGMEM = string_literal;
 #define MAKE_PSTR_WORD(string_name) MAKE_PSTR(string_name, #string_name)
@@ -392,4 +392,4 @@ void setup_commands(std::shared_ptr<Commands> &commands) {
 	scd30::setup_commands(commands);
 }
 
-} // namespace scd30
+} // namespace app
