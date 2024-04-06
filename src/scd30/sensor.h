@@ -90,6 +90,12 @@ public:
 	inline float co2_ppm() const { return co2_ppm_; }
 
 private:
+	enum class ConfigUpdate : uint8_t {
+		NONE,
+		READ,
+		WRITE,
+	};
+
 	static uint32_t current_time();
 	static uint16_t automatic_calibration();
 	static uint16_t temperature_offset();
@@ -112,6 +118,7 @@ private:
 	std::bitset<sizeof(uint32_t) * 8> pending_operations_;
 	Operation current_operation_ = Operation::NONE;
 	std::shared_ptr<const uuid::modbus::Response> response_;
+	ConfigUpdate config_update_{ConfigUpdate::NONE};
 
 	uint32_t reset_start_ms_;
 	uint32_t reset_wait_ms_;

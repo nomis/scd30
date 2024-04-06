@@ -1,6 +1,6 @@
 /*
  * scd30 - SCD30 Monitor
- * Copyright 2022  Simon Arlott
+ * Copyright 2022,2024  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -331,11 +331,11 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 	if (!response_) {
 		logger_.debug(F("Reading %S configuration"), name);
 		response_ = client_.read_holding_registers(DEVICE_ADDRESS, address, 1);
+		config_update_ = ConfigUpdate::READ;
 	} else if (response_->done()) {
-		auto read_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
-		auto write_response = std::dynamic_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
+		if (config_update_ == ConfigUpdate::WRITE) {
+			auto write_response = std::static_pointer_cast<const uuid::modbus::RegisterWriteResponse>(response_);
 
-		if (write_response) {
 			if (write_response->data().size() < 1) {
 				logger_.crit(F("Failed to write %S configuration"), name);
 				reset();
@@ -345,9 +345,11 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 
 				name_title[0] = ::toupper(name_title[0]);
 
-				logger_.info(F("%s %s"), name_title.c_str(), func_value_str(read_response->data()[0]).c_str());
+				logger_.info(F("%s %s"), name_title.c_str(), func_value_str(write_response->data()[0]).c_str());
 			}
-		} else if (read_response) {
+		} else if (config_update_ == ConfigUpdate::READ) {
+			auto read_response = std::static_pointer_cast<const uuid::modbus::RegisterDataResponse>(response_);
+
 			if (read_response->data().size() < 1) {
 				logger_.crit(F("Failed to read %S configuration"), name);
 				reset();
@@ -368,12 +370,14 @@ void Sensor::update_config_register(const __FlashStringHelper *name,
 						logger_.info(F("Setting %S to %s"), name, func_value_str(value).c_str());
 					}
 					response_ = client_.write_holding_register(DEVICE_ADDRESS, address, value);
+					config_update_ = ConfigUpdate::WRITE;
 					return;
 				}
 			}
 		}
 
 		response_.reset();
+		config_update_ = ConfigUpdate::NONE;
 		current_operation_ = Operation::NONE;
 	}
 }
