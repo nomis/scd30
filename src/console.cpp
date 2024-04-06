@@ -1,6 +1,6 @@
 /*
  * scd30 - SCD30 Monitor
- * Copyright 2022  Simon Arlott
+ * Copyright 2022,2024  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ using ::uuid::console::Shell;
 using LogLevel = ::uuid::log::Level;
 using LogFacility = ::uuid::log::Facility;
 
+using ::app::AppShell;
 using ::app::CommandFlags;
 using ::app::Config;
 using ::app::ShellContext;
@@ -81,8 +82,12 @@ MAKE_PSTR(temperature_optional, "[temperature in °C]")
 MAKE_PSTR(url_optional, "[url]")
 #pragma GCC diagnostic pop
 
-static inline App &to_app(Shell &shell) {
-	return static_cast<App&>(dynamic_cast<app::AppShell&>(shell).app_);
+static constexpr inline AppShell &to_app_shell(Shell &shell) {
+	return static_cast<AppShell&>(shell);
+}
+
+static constexpr inline App &to_app(Shell &shell) {
+	return static_cast<App&>(to_app_shell(shell).app_);
 }
 
 static inline void setup_commands(std::shared_ptr<Commands> &commands) {

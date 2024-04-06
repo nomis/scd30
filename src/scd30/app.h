@@ -27,9 +27,9 @@
 #include <uuid/syslog.h>
 #include <uuid/telnet.h>
 
-#include "../app/app.h"
-#include "../app/console.h"
-#include "../app/network.h"
+#include "app/app.h"
+#include "app/console.h"
+#include "app/network.h"
 #include "report.h"
 #include "sensor.h"
 

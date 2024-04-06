@@ -17,55 +17,55 @@
  */
 
 #define MCU_APP_CONFIG_DATA \
-        MCU_APP_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_ambient_pressure, "", 0) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5) \
-        MCU_APP_CONFIG_PRIMITIVE(bool, "", report_enabled, "", true) \
-        MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", report_threshold, "", 12) \
-        MCU_APP_CONFIG_SIMPLE(std::string, "", report_url, "", "") \
-        MCU_APP_CONFIG_SIMPLE(std::string, "", report_username, "", "") \
-        MCU_APP_CONFIG_SIMPLE(std::string, "", report_password, "", "") \
-        MCU_APP_CONFIG_SIMPLE(std::string, "", report_sensor_name, "", "")
+	MCU_APP_CONFIG_PRIMITIVE(bool, "", sensor_automatic_calibration, "", false) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_temperature_offset, "", 0) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_altitude_compensation, "", 0) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_measurement_interval, "", 2) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", sensor_ambient_pressure, "", 0) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", take_measurement_interval, "", 5) \
+	MCU_APP_CONFIG_PRIMITIVE(bool, "", report_enabled, "", true) \
+	MCU_APP_CONFIG_PRIMITIVE(unsigned long, "", report_threshold, "", 12) \
+	MCU_APP_CONFIG_SIMPLE(std::string, "", report_url, "", "") \
+	MCU_APP_CONFIG_SIMPLE(std::string, "", report_username, "", "") \
+	MCU_APP_CONFIG_SIMPLE(std::string, "", report_password, "", "") \
+	MCU_APP_CONFIG_SIMPLE(std::string, "", report_sensor_name, "", "")
 
 public:
-    bool sensor_automatic_calibration() const;
-    void sensor_automatic_calibration(bool sensor_automatic_calibration);
+	bool sensor_automatic_calibration() const;
+	void sensor_automatic_calibration(bool sensor_automatic_calibration);
 
-    unsigned long sensor_temperature_offset() const;
-    void sensor_temperature_offset(unsigned long sensor_temperature_offset);
+	unsigned long sensor_temperature_offset() const;
+	void sensor_temperature_offset(unsigned long sensor_temperature_offset);
 
-    unsigned long sensor_altitude_compensation() const;
-    void sensor_altitude_compensation(unsigned long sensor_altitude_compensation);
+	unsigned long sensor_altitude_compensation() const;
+	void sensor_altitude_compensation(unsigned long sensor_altitude_compensation);
 
-    unsigned long sensor_measurement_interval() const;
-    void sensor_measurement_interval(unsigned long sensor_measurement_interval);
+	unsigned long sensor_measurement_interval() const;
+	void sensor_measurement_interval(unsigned long sensor_measurement_interval);
 
-    unsigned long sensor_ambient_pressure() const;
-    void sensor_ambient_pressure(unsigned long sensor_ambient_pressure);
+	unsigned long sensor_ambient_pressure() const;
+	void sensor_ambient_pressure(unsigned long sensor_ambient_pressure);
 
-    unsigned long take_measurement_interval() const;
-    void take_measurement_interval(unsigned long take_measurement_interval);
+	unsigned long take_measurement_interval() const;
+	void take_measurement_interval(unsigned long take_measurement_interval);
 
-    bool report_enabled() const;
-    void report_enabled(bool report_enabled);
+	bool report_enabled() const;
+	void report_enabled(bool report_enabled);
 
-    unsigned long report_threshold() const;
-    void report_threshold(unsigned long report_threshold);
+	unsigned long report_threshold() const;
+	void report_threshold(unsigned long report_threshold);
 
-    std::string report_url() const;
-    void report_url(const std::string &report_url);
+	std::string report_url() const;
+	void report_url(const std::string &report_url);
 
-    std::string report_username() const;
-    void report_username(const std::string &report_username);
+	std::string report_username() const;
+	void report_username(const std::string &report_username);
 
-    std::string report_password() const;
-    void report_password(const std::string &report_password);
+	std::string report_password() const;
+	void report_password(const std::string &report_password);
 
-    std::string report_sensor_name() const;
-    void report_sensor_name(const std::string &report_sensor_name);
+	std::string report_sensor_name() const;
+	void report_sensor_name(const std::string &report_sensor_name);
 
 private:
 	static bool sensor_automatic_calibration_;

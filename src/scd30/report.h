@@ -1,6 +1,6 @@
 /*
  * scd30 - SCD30 Monitor
- * Copyright 2022  Simon Arlott
+ * Copyright 2022,2024  Simon Arlott
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,10 @@
 # include <ESP8266HTTPClient.h>
 # include <WiFiClientSecureBearSSL.h>
 #else
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wswitch-enum"
 # include <HTTPClient.h>
+# pragma GCC diagnostic pop
 #endif
 #include <WiFiClient.h>
 
